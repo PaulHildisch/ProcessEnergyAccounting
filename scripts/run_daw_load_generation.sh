@@ -5,7 +5,7 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/run_nfcore_load_generation.sh [options]
+  scripts/run_daw_load_generation.sh [options]
 
 Options:
   --pipelines-file <path>     File with one nf-core pipeline spec per line.
@@ -26,11 +26,11 @@ Options:
 
 Examples:
   # Basic run
-  scripts/run_nfcore_load_generation.sh --pipelines-file nextflow/nfcore_test_pipelines.txt
+  scripts/run_daw_load_generation.sh --pipelines-file scripts/nfcore_test_pipelines.txt
 
   # More variance: repeat pipelines, add stress bursts, limit CPUs
-  scripts/run_nfcore_load_generation.sh \
-    --pipelines-file nextflow/nfcore_test_pipelines.txt \
+  scripts/run_daw_load_generation.sh \
+    --pipelines-file scripts/nfcore_test_pipelines.txt \
     --repeat 3 \
     --stress-duration 60 \
     --max-cpus 4
@@ -309,7 +309,7 @@ run_pipeline_segment() {
   if [[ "${PIPELINE_PROFILE}" == "test_full" ]]; then
     echo "  Trying profile: ${profile}"
     if ! nextflow run "${pipeline_parts[@]}" \
-      -c nextflow/trace.config \
+      -c scripts/trace.config \
       "${extra_config_args[@]}" \
       -profile "${profile}" \
       --outdir "${outdir}" \
@@ -319,7 +319,7 @@ run_pipeline_segment() {
       echo "  test_full failed or not available — falling back to test,${BACKEND_PROFILE}"
       profile="test,${BACKEND_PROFILE}"
       if ! nextflow run "${pipeline_parts[@]}" \
-        -c nextflow/trace.config \
+        -c scripts/trace.config \
         "${extra_config_args[@]}" \
         -profile "${profile}" \
         --outdir "${outdir}" \
@@ -331,7 +331,7 @@ run_pipeline_segment() {
     fi
   else
     if ! nextflow run "${pipeline_parts[@]}" \
-      -c nextflow/trace.config \
+      -c scripts/trace.config \
       "${extra_config_args[@]}" \
       -profile "${profile}" \
       --outdir "${outdir}" \
