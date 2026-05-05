@@ -184,9 +184,17 @@ detect_env_tool() {
 print_python_info() {
   log "System Python: $(command -v python3 2>/dev/null || echo 'not found')"
   python3 --version 2>/dev/null || true
+  if command -v python >/dev/null 2>&1; then
+    log "Default 'python': $(command -v python)"
+    python --version 2>/dev/null || true
+  fi
   if [[ -d "$1/venv" ]]; then
     log "Venv Python: $1/venv/bin/python"
     "$1/venv/bin/python" --version 2>/dev/null || true
+  fi
+  if [[ -d "$1/.venv" ]]; then
+    log "Project .venv Python: $1/.venv/bin/python"
+    "$1/.venv/bin/python" --version 2>/dev/null || true
   fi
 }
 
@@ -221,12 +229,49 @@ create_venv() {
   fi
 }
 
+select_python_interpreter() {
+  local candidate=""
+  local version_spec="${PYTHON_VERSION}"
+
+  if [[ -n "$version_spec" ]]; then
+    candidate="python${version_spec}"
+    if ! command -v "$candidate" >/dev/null 2>&1; then
+      error "Requested interpreter '$candidate' was not found in PATH."
+    fi
+    echo "$candidate"
+    return 0
+  fi
+
+  for candidate in python3.13 python3.12 python3.11 python3.10 python3; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      if "$candidate" -c 'import sys; raise SystemExit(0 if (3, 10) <= sys.version_info[:2] < (3, 14) else 1)' >/dev/null 2>&1; then
+        echo "$candidate"
+        return 0
+      fi
+    fi
+  done
+
+  error "Could not find a compatible Python interpreter (>=3.10,<3.14) in PATH."
+}
+
 create_poetry_env() {
   local root="$1"
+  local selected_python
   ensure_tool poetry
-  log "Installing dependencies with poetry in $root"
-  [[ $DRYRUN -eq 1 ]] && dryrun "poetry install" && return
-  (cd "$root" && poetry install)
+  selected_python="$(select_python_interpreter)"
+  log "Configuring poetry to create an in-project virtual environment in $root/.venv"
+  log "Using interpreter for poetry env: $(command -v "$selected_python")"
+  "$selected_python" --version 2>/dev/null || true
+  [[ $DRYRUN -eq 1 ]] && dryrun "poetry config virtualenvs.in-project true --local" && dryrun "poetry env use $selected_python" && dryrun "poetry install" && return
+  (
+    cd "$root"
+    poetry config virtualenvs.in-project true --local
+    if [[ $SYSTEM_PYTHON -eq 1 ]]; then
+      poetry config virtualenvs.options.system-site-packages true --local
+    fi
+    poetry env use "$selected_python"
+    poetry install
+  )
 }
 
 create_uv_env() {
@@ -352,9 +397,14 @@ print_summary() {
       ;;
     poetry)
       echo "Environment type: poetry"
-      # Try to get the poetry venv path, but do not abort the script if this fails.
       local poetry_env_path
-      poetry_env_path=$(cd "$root" && poetry env info -p 2>/dev/null || true)
+      local in_project_env="$root/.venv"
+      # Prefer the in-project venv we configure above. Fall back to poetry env info.
+      if [[ -d "$in_project_env" ]]; then
+        poetry_env_path="$in_project_env"
+      else
+        poetry_env_path=$(cd "$root" && poetry env info -p 2>/dev/null || true)
+      fi
       if [[ -n "$poetry_env_path" && -d "$poetry_env_path" ]]; then
         echo "Location: $poetry_env_path"
         echo "Activate: source \"$poetry_env_path/bin/activate\""
@@ -369,8 +419,8 @@ print_summary() {
         fi
       else
         echo "Location: (could not determine poetry venv path automatically)"
-        echo "Activate: source \"\$(poetry env info -p)/bin/activate\""
-        echo "Alternative: poetry run python your_script.py"
+        echo "Activate: poetry run python your_script.py"
+        echo "Alternative: run 'poetry env info -p' manually and activate that path"
         echo "Deactivate: deactivate"
         echo "Installed packages:"
         (cd "$root" && poetry show || poetry run pip list)
