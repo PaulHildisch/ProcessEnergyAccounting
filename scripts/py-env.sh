@@ -352,9 +352,9 @@ print_summary() {
       ;;
     poetry)
       echo "Environment type: poetry"
-      # Try to get the poetry venv path
+      # Try to get the poetry venv path, but do not abort the script if this fails.
       local poetry_env_path
-      poetry_env_path=$(cd "$root" && poetry env info -p 2>/dev/null)
+      poetry_env_path=$(cd "$root" && poetry env info -p 2>/dev/null || true)
       if [[ -n "$poetry_env_path" && -d "$poetry_env_path" ]]; then
         echo "Location: $poetry_env_path"
         echo "Activate: source \"$poetry_env_path/bin/activate\""
@@ -362,15 +362,18 @@ print_summary() {
         echo "Run script (recommended): poetry run python your_script.py"
         echo "  (or, after activation: python your_script.py)"
         echo "Installed packages:"
-        "$poetry_env_path/bin/pip" list --format=columns | tail -n +3
+        if [[ -x "$poetry_env_path/bin/pip" ]]; then
+          "$poetry_env_path/bin/pip" list --format=columns | tail -n +3
+        else
+          (cd "$root" && poetry run pip list)
+        fi
       else
-        echo "Location: (could not determine poetry venv path, it may be using a global environment)"
-        echo "Activate: poetry shell"
-        echo "Deactivate: exit"
-        echo "Run script (recommended): poetry run python your_script.py"
-        echo "  (or, after activation: python your_script.py)"
+        echo "Location: (could not determine poetry venv path automatically)"
+        echo "Activate: source \"\$(poetry env info -p)/bin/activate\""
+        echo "Alternative: poetry run python your_script.py"
+        echo "Deactivate: deactivate"
         echo "Installed packages:"
-        (cd "$root" && poetry show)
+        (cd "$root" && poetry show || poetry run pip list)
       fi
       ;;
     pixi)
