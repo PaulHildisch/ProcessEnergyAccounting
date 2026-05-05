@@ -1,106 +1,119 @@
-# Workflow Energy Estimations
+# Process Energy Accounting
 
-This project learns a regression model that predicts per-process energy usage from process-level runtime metrics plus measured node power. Workflow attribution is a separate, post-hoc step used for aggregation and analysis after the model has been trained.
+This repository collects **machine power measurements** together with **per-process runtime metrics** and stores them in **InfluxDB**. Its main purpose is to create datasets for later energy analysis and attribution.
 
-## Intended Workflow
+In short, the project does this:
 
-The operational model is:
+1. read power data from a smart meter
+2. collect process-level metrics from the machine
+3. store both in InfluxDB at fixed time intervals
+4. export the recorded session to parquet for analysis
 
-1. start the monitor in one `tmux` pane
-2. start nf-core load generation in another `tmux` pane
-3. let the load generator run several `-profile test` pipelines with random idle periods between them
-4. stop the monitor when the load-generation session is complete
-5. export a process-level parquet dataset from InfluxDB
-6. train the regression model on process rows only
-7. if you want workflow/job insights, annotate the process dataset afterward using the saved Nextflow traces
-8. aggregate estimated process energy to task/workflow level
+## What this is for
 
-That separation is deliberate:
+Use this project when you want to record how much activity different processes generate over time and relate that to measured node power.
 
-- monitoring is independent of Nextflow
-- model training is independent of workflow attribution
-- workflow attribution is only required for post-hoc reporting and aggregation
+The repository is mainly focused on:
 
-## Repository Layout
-
-- `delta_aggregator.py`: continuous process and power monitoring
-- `monitoring/`: BPF counters, `/proc`/`psutil` metadata, and Nextflow trace resolver
-- `database/client.py`: InfluxDB read/write logic
-- `smart_meter/client.py`: smart meter API client
-- `scripts/run_nfcore_load_generation.sh`: nf-core test-profile load generator with random idle periods
-- `scripts/export_process_dataset.sh`: export a monitored session from InfluxDB to process-level parquet
-- `nextflow/trace.config`: Nextflow trace field configuration
-- `nextflow/nfcore_test_pipelines.txt`: starter list of nf-core pipelines for load generation
-- `estimation/data/data_loader.py`: export process/task/workflow datasets from InfluxDB
-- `estimation/train_energy_regression.py`: process-only regression training CLI
-- `estimation/annotate_nextflow_runs.py`: post-hoc workflow attribution for process datasets
-- `estimation/estimate_energy.py`: apply a trained model to process data and optionally aggregate estimates
-- `estimation/analyze_energy.py`: higher-level workflow/task analysis
+- **data collection**
+- **session recording**
+- **dataset export**
 
 ## Requirements
 
-- Python packages:
-    - `pandas`
-    - `numpy`
-    - `psutil`
-    - `influxdb-client`
-    - `requests`
-    - `cvxpy`
-    - `scikit-learn`
-    - `matplotlib`
-    - `pyarrow` or `fastparquet`
-- BCC/BPF support for the kernel and userspace tools
+You need:
+
+- Linux
+- Python `>=3.10,<3.14`
+- Poetry
 - InfluxDB 2.x
-- `nextflow`
-- a working Nextflow execution backend for nf-core test profiles
-- a smart meter reachable through [`smart_meter/client.py`](/Users/juliusirion/repos/j-irion-github/workflow-energy-estimations/smart_meter/client.py)
+- a compatible smart meter reachable over HTTP or HTTPS
+- root privileges for monitoring on most systems
 
-## Node Setup
+Some monitoring features rely on **BCC/eBPF** and Linux performance counters, so the machine must support that setup.
 
-On cluster or lab nodes, the monitor usually needs root privileges because it loads BCC tracepoint probes.
+## Installation
 
-The validated setup on a node like `siena06` is:
+### 1. Set up the Python environment
 
-1. use the system Python for the Poetry environment, not a newer standalone Python
-2. allow the Poetry environment to see system site packages so the OS-installed `bcc` bindings are available
-3. run the monitor with `sudo`
+The Python dependencies are defined in `pyproject.toml`, and the repository includes a helper script for creating and validating a Python environment:
 
-Example:
+- `scripts/py-env.sh`
 
-```bash
-poetry config virtualenvs.options.system-site-packages true --local
-poetry env remove --all
-poetry env use /usr/bin/python3
-poetry lock
-poetry install
-```
+If you run the script from the project directory, it can usually figure out the correct setup on its own. Since this repository uses Poetry, the script will normally auto-detect that from `pyproject.toml`.
 
-Then verify:
+Recommended order:
 
-```bash
-poetry run python --version
-poetry run python -c "from bcc import BPF; import psutil; from dotenv import load_dotenv; print('ok')"
-```
+1. create the Python environment with `bash scripts/py-env.sh`
+2. activate that environment if you want to work inside it
+3. run `bash scripts/install-deps.sh` so the BCC Python bindings can also be installed into the active environment when needed
 
-On nodes where BCC tracepoints require elevated privileges, start the monitor like this:
+Recommended setup:
 
-```bash
-sudo .venv/bin/python delta_aggregator.py --interval 2 --sample-rate 0.5 --meter-ssl
-```
+- `bash scripts/py-env.sh`
 
-## InfluxDB
+If you want to recreate the environment from scratch:
 
-The repository includes a minimal local InfluxDB stack in [`docker-compose.yml`](/Users/juliusirion/repos/j-irion-github/workflow-energy-estimations/docker-compose.yml).
+- `bash scripts/py-env.sh --clean --force`
 
-```bash
-docker compose up -d
-```
+If your machine only provides `bcc` through system Python packages, try:
+
+- `bash scripts/py-env.sh --system-python`
+
+At the end, the script prints the environment location and how to activate it. For a Poetry environment, that is typically one of these:
+
+- `source "$(poetry env info -p)/bin/activate"`
+- `poetry run python ...`
+
+A practical setup flow is therefore:
+
+- `bash scripts/py-env.sh`
+- `source "$(poetry env info -p)/bin/activate"`
+
+If `bcc` is still missing afterward, check whether `scripts/install-deps.sh` was run while the correct environment was active.
+
+### 2. Install system dependencies
+
+The repository includes an installation helper:
+
+- `scripts/install-deps.sh`
+
+This script installs:
+
+- Docker / Docker Compose
+- build tools
+- LLVM/Clang dependencies
+- Python tooling
+- Linux headers
+- BCC build requirements
+
+Run it with:
+
+- `bash scripts/install-deps.sh`
+
+This script is mostly aimed at Debian/Ubuntu-like systems.
+
+Important: this script does more than install system packages. If you already have an active virtual environment or active Poetry environment, it will also try to install the Python `bcc` bindings into that environment so that `import bcc` works there as well. That matters for this project, because the monitor depends on BCC from inside the Python environment you use to run `delta_aggregator.py`.
+
+### 3. Start InfluxDB
+
+A minimal local InfluxDB setup is included in `docker-compose.yml`.
+
+Start it with:
+
+- `docker compose up -d`
+
+The default local configuration uses:
+
+- URL: `http://localhost:8086`
+- org: `myorg`
+- bucket: `mybucket`
 
 ## Configuration
 
-The monitor and export CLI load a local `.env` file automatically.
+Create a local `.env` file. You can start from `example.env`.
 
-Relevant variables:
+Important variables:
 
 - `INFLUX_URL`
 - `INFLUX_TOKEN`
@@ -113,239 +126,122 @@ Relevant variables:
 
 Example:
 
-```dotenv
+```ProcessEnergyAccounting/example.env#L1-8
 INFLUX_URL=http://localhost:8086
 INFLUX_TOKEN=my-super-secret-auth-token
 INFLUX_ORG=myorg
 INFLUX_BUCKET=mybucket
-SMARTMETER_HOST=<meter-host>
-SMARTMETER_USER=<meter-user>
-SMARTMETER_PASSWORD=<meter-password>
-SMARTMETER_SSL=false
+
+SMARTMETER_HOST=replace-with-smart-meter-host
+SMARTMETER_USER=replace-with-smart-meter-user
+SMARTMETER_PASSWORD=replace-with-smart-meter-password
 ```
 
-Note:
+## Quick start
 
-- set `SMARTMETER_SSL=true` if your meter only works over HTTPS
-- you can still override that with `--meter-ssl` on the CLI
+### 1. Start the monitor
 
-## Step 1: Start Monitoring
+Run:
 
-In the first `tmux` pane, start the monitor. It will collect power and process metrics for all live PIDs continuously, regardless of whether a Nextflow pipeline is running.
+- `sudo poetry run python delta_aggregator.py --interval 2 --sample-rate 0.5`
 
-```bash
-sudo .venv/bin/python delta_aggregator.py \
-  --interval 2 \
-  --sample-rate 0.5 \
-  --meter-ssl
-```
+This starts the main monitoring loop.
 
-You can still pass explicit `--influx-*` and `--meter-*` arguments if you do not want to rely on `.env`.
+It will:
 
-Important:
+- query the smart meter repeatedly during each interval
+- collect per-process metrics from the machine
+- compute interval-level values
+- write the result to InfluxDB
 
-- do not pass `--nextflow-trace` for normal training-data collection
-- the monitor should stay generic and observe the whole machine
-- idle periods are simply periods where no nf-core pipeline is active, but normal system processes still exist
-- on restricted nodes, root privileges may be required for BCC tracepoint loading
+Root privileges are often required because the monitor uses BPF and performance counters.
 
-## Step 2: Run nf-core Load Generation
+### 2. Run your workload
 
-In the second `tmux` pane, run the load-generation script. It enforces `-profile test` for every pipeline and appends a backend profile (default: `docker`), then inserts random idle periods between runs.
+While the monitor is running, start whatever workload you want to measure.
 
-The default pipeline list is [`nextflow/nfcore_test_pipelines.txt`](/Users/juliusirion/repos/j-irion-github/workflow-energy-estimations/nextflow/nfcore_test_pipelines.txt).
+That can be:
+
+- your own application
+- a benchmark
+- a script
+- an optional automated workload generator from this repository
+
+For example, `scripts/run_daw_load_generation.sh` creates a reproducible session by running a sequence of pipeline workloads, inserting idle periods between runs, optionally adding short `stress-ng` bursts, and writing session metadata under `runs/`. Conceptually, it is just a way to generate a varied mix of busy and idle machine phases so the monitor records a broader range of behavior over time.
+
+### 3. Stop the monitor
+
+When the workload is finished, stop `delta_aggregator.py`.
+
+At that point, the recorded interval data is stored in InfluxDB.
+
+## Exporting data
+
+To export a recorded session to parquet, use:
+
+- `scripts/export_process_dataset.sh`
 
 Example:
 
-```bash
-bash scripts/run_nfcore_load_generation.sh \
-  --pipelines-file nextflow/nfcore_test_pipelines.txt \
-  --backend-profile docker \
-  --idle-min 30 \
-  --idle-max 180 \
-  --initial-idle 60 \
-  --final-idle 60
-```
+- `bash scripts/export_process_dataset.sh --session-dir runs/<session-id>`
 
-You can also specify pipelines directly:
+This writes a process-level dataset such as:
 
-```bash
-bash scripts/run_nfcore_load_generation.sh \
-  --backend-profile docker \
-  --pipeline "nf-core/scnanoseq -r 1.2.2" \
-  --pipeline "nf-core/rnaseq"
-```
+- `runs/<session-id>/datasets/process_interval_data.parquet`
 
-Each pipeline is run like this:
+You can also use the Python loader directly through `estimation/data/data_loader.py` if you want full control over time range and aggregation window.
 
-```bash
-nextflow run nf-core/scnanoseq -r 1.2.2 -profile test,docker --outdir <OUTDIR>
-```
+## Optional workload generation
 
-The script additionally enables:
+The repository also contains:
 
-- `-c nextflow/trace.config`
-- `-with-trace`
-- `-with-report`
-- `-with-timeline`
+- `scripts/run_daw_load_generation.sh`
 
-Output goes to `runs/<session_id>/` and includes:
+This can be used to create repeatable workload sessions and store run metadata under `runs/`.
 
-- `manifest.tsv`
-- `session_start.txt`
-- `session_stop.txt`
-- per-pipeline `trace.txt`, `report.html`, and `timeline.html`
-- combined `nextflow/session_trace.tsv`
+This is optional and not required for basic monitoring.
 
-## Step 3: Stop Monitoring
+## Repository overview
 
-When the load-generation script finishes, stop `delta_aggregator.py` in the first pane.
+Important files and directories:
 
-At that point you have:
+- `delta_aggregator.py` — main monitor
+- `monitoring/` — process and kernel-level metric collection
+- `database/client.py` — InfluxDB read/write logic
+- `smart_meter/client.py` — smart meter API client
+- `scripts/install-deps.sh` — system dependency setup helper
+- `scripts/export_process_dataset.sh` — export monitored data to parquet
+- `scripts/run_daw_load_generation.sh` — optional workload generator
+- `docker-compose.yml` — local InfluxDB setup
+- `example.env` — configuration template
 
-- raw monitored process/power data in InfluxDB
-- Nextflow traces and run metadata on disk under `runs/<session_id>/`
+## Common issues
 
-## Step 4: Export the Process-Level Training Dataset
+### `ModuleNotFoundError: No module named 'bcc'`
 
-Export the monitored time range from InfluxDB. Use the timestamps from the load-generation session, or the exact monitor start/stop times if you want a slightly wider range.
+Your Python environment cannot see the BCC bindings.
 
-Preferred helper:
+Things to check:
 
-```bash
-bash scripts/export_process_dataset.sh \
-  --session-dir runs/<session_id>
-```
+- whether BCC is installed on the system
+- whether your Poetry environment can access system packages
+- whether `scripts/install-deps.sh` completed successfully
 
-Equivalent direct export:
+### permission errors when starting the monitor
 
-```bash
-python estimation/data/data_loader.py \
-  --level process \
-  --start 2026-03-12T10:00:00Z \
-  --stop 2026-03-12T11:00:00Z \
-  --aggregate-every 1s \
-  --output runs/<session_id>/datasets/process_interval_data.parquet
-```
+The monitor often needs elevated privileges.
 
-The exported process dataset includes the process identity fields needed for post-hoc attribution later, including `pid`, `ppid`, `cmdline`, `exe`, `cwd`, `cgroup`, `create_time`, and `session_id`.
+Try running it with:
 
-## Step 5: Train the Model
+- `sudo poetry run python delta_aggregator.py --interval 2 --sample-rate 0.5`
 
-Train on process rows only:
+### smart meter connection problems
 
-```bash
-python estimation/train_energy_regression.py \
-  --data runs/<session_id>/datasets/process_interval_data.parquet \
-  --model-output artifacts/models/process_energy_regression.pkl
-```
+Check:
 
-This model is intentionally workflow-agnostic. It learns from:
+- `SMARTMETER_HOST`
+- `SMARTMETER_USER`
+- `SMARTMETER_PASSWORD`
+- `SMARTMETER_SSL`
 
-- per-process metrics
-- measured interval energy
-
-It does not need workflow labels at training time.
-
-## Step 6: Apply the Trained Model to Other Data
-
-For a new monitored session, export another process dataset and estimate per-process energy:
-
-```bash
-python estimation/estimate_energy.py \
-  --model artifacts/models/process_energy_regression.pkl \
-  --data runs/<other_session_id>/datasets/process_interval_data.parquet \
-  --level process \
-  --output artifacts/estimates/process_estimates.parquet
-```
-
-This gives you process-level energy estimates without requiring workflow attribution.
-
-## Step 7: Add Workflow Attribution Afterward
-
-If you want workflow-, pipeline-, or task-level insights, annotate the exported process dataset using the saved Nextflow traces from the load-generation session:
-
-```bash
-python estimation/annotate_nextflow_runs.py \
-  --data runs/<session_id>/datasets/process_interval_data.parquet \
-  --session-dir runs/<session_id> \
-  --output runs/<session_id>/datasets/process_interval_data_attributed.parquet
-```
-
-This step uses the saved trace data to add:
-
-- `workflow_run_id`
-- `pipeline_name`
-- `task_id`
-- `task_name`
-- `task_tag`
-- `work_dir`
-- `native_id`
-- `group_id`
-
-Training still does not depend on this step. Aggregation does.
-
-## Step 8: Aggregate Estimated Process Energy
-
-Once you have an attributed process dataset, you can aggregate estimated process energy to task or workflow level.
-
-Task-level estimates:
-
-```bash
-python estimation/estimate_energy.py \
-  --model artifacts/models/process_energy_regression.pkl \
-  --data runs/<session_id>/datasets/process_interval_data_attributed.parquet \
-  --level task \
-  --output artifacts/estimates/task_estimates.parquet
-```
-
-Workflow-level estimates:
-
-```bash
-python estimation/estimate_energy.py \
-  --model artifacts/models/process_energy_regression.pkl \
-  --data runs/<session_id>/datasets/process_interval_data_attributed.parquet \
-  --level workflow \
-  --output artifacts/estimates/workflow_estimates.parquet
-```
-
-## Analysis
-
-For attributed datasets, use the higher-level analysis CLI:
-
-```bash
-python estimation/analyze_energy.py \
-  --data runs/<session_id>/datasets/process_interval_data_attributed.parquet \
-  --workflow-summary-output artifacts/reports/workflow_energy_summary.parquet \
-  --task-summary-output artifacts/reports/task_energy_summary.parquet \
-  --top-n 10
-```
-
-These answer questions such as:
-
-- energy per workflow run
-- energy per pipeline process/task
-- top tasks by energy
-- task-level energy contribution over time
-
-## Notes
-
-- `-profile test` is enforced in the load-generation script because full nf-core runs are too slow for iterative dataset collection.
-- the script appends a backend profile (default `docker`) so tools like `fastqc` run in the intended execution environment.
-- Background operating-system activity during idle periods remains part of the measured process dataset. That is useful, because the model should learn dynamic energy on top of real machine baseline behavior.
-- The current post-hoc resolver prefers `native_id` and `work_dir`, constrains matches by the task runtime window from the Nextflow trace, then propagates assignments through the process tree via `ppid`.
-
-## Troubleshooting
-
-- `ModuleNotFoundError: No module named 'bcc'`:
-  use the system Python in the Poetry environment and enable system site packages as shown in `Node Setup`.
-- `Need super-user privileges to run` or `Operation not permitted` from BCC:
-  start the monitor with `sudo`.
-- `Connection refused` when talking to the smart meter:
-  verify the host and use `--meter-ssl` if the device only serves HTTPS.
-- `InsecureRequestWarning` from `urllib3`:
-  this is expected when talking to an HTTPS smart meter without certificate verification.
-- `A module that was compiled using NumPy 1.x cannot be run in NumPy 2.x`:
-  this can happen when the Poetry environment sees older system packages such as `numexpr` or `bottleneck` through `system-site-packages`. The monitor still ran successfully in this state on the validated node, but the cleaner long-term fix is to pin `numpy<2` or install compatible versions of those optional packages in the environment.
-- `cannot schedule new futures after shutdown` on Ctrl-C:
-  this can appear during InfluxDB client shutdown after the monitor stops. It is a shutdown-time cleanup issue, not a collection-time failure.
+If the device only supports HTTPS, set `SMARTMETER_SSL=true`.

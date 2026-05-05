@@ -23,32 +23,6 @@ else
     echo "docker-compose is already installed."
 fi
 
-# Install java & nextflow using sdkman
-if ! command -v sdk &> /dev/null
-then
-    echo "SDKMAN not found. Installing SDKMAN..."
-    curl -s "https://get.sdkman.io" | bash
-    source "$HOME/.sdkman/bin/sdkman-init.sh"
-else
-    echo "SDKMAN is already installed."
-    source "$HOME/.sdkman/bin/sdkman-init.sh"
-fi
-
-echo "Installing Java (OpenJDK 17) via SDKMAN..."
-sdk install java 17.0.10-tem
-sdk default java 17.0.10-tem
-
-# Remove a directory named 'nextflow' if it exists, to allow the installer to create the executable
-if [ -d "nextflow" ]; then
-    echo "Removing existing 'nextflow' directory to allow installation."
-    rm -rf nextflow
-fi
-
-echo "Installing Nextflow..."
-curl -s https://get.nextflow.io | bash
-sudo mv nextflow /usr/local/bin/
-sudo chmod +x /usr/local/bin/nextflow
-
 # Install python BCC and the necessary build tools to install bcc from scratch
 sudo apt-get update
 
