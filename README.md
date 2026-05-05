@@ -23,7 +23,7 @@ The repository is mainly focused on:
 
 You need:
 
-- Linux
+- Linux (Tested on Ubuntu 24.04.4 LTS)
 - Python `>=3.10,<3.14`
 - Poetry
 - InfluxDB 2.x
