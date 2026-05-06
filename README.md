@@ -217,16 +217,7 @@ When the workload is finished, stop `delta_aggregator.py`.
 
 At that point, the recorded interval data is stored in InfluxDB.
 
-### 4. Analysis and modeling
-
-The repository contains a few standalone scripts for feature exploration and simple model experiments:
-
-- `estimation/feature_selection/feature_selection.py` — exploratory feature analysis, correlations, lag checks, etc.
-
-- `estimation/feature_selection/sfs.py` — sequential forward selection that greedily adds features based on test R² improvement
-- `cvxpy_estimator.py` — a direct CVXPY-based estimator workflow that trains a sparse interval-energy model and produces diagnostic plots
-
-## Exporting data
+### 4. Data exports
 
 To export a recorded session to parquet, use:
 
@@ -241,6 +232,16 @@ This writes a process-level dataset such as:
 - `runs/<session-id>/datasets/process_interval_data.parquet`
 
 You can also use the Python loader directly through `estimation/data/data_loader.py` if you want full control over time range and aggregation window.
+
+### 4. Analysis and modeling
+
+The repository contains a few standalone scripts for feature exploration and modeling that works on the exported datasets of the prior step:
+
+- `estimation/feature_selection/feature_selection.py` — exploratory feature analysis, correlations, lag checks, etc.
+
+- `estimation/feature_selection/sfs.py` — sequential forward selection that greedily adds features based on test R² improvement
+- `cvxpy_estimator.py` — a direct CVXPY-based estimator workflow that trains a sparse interval-energy model and produces diagnostic plots
+
 
 ## Optional workload generation
 
@@ -278,13 +279,9 @@ Things to check:
 - whether your Poetry environment can access system packages
 - whether `scripts/install-deps.sh` completed successfully
 
-### permission errors when starting the monitor
+### permission errors
 
-The monitor often needs elevated privileges.
-
-Try running it with:
-
-- `sudo poetry run python delta_aggregator.py --interval 2 --sample-rate 0.5`
+Always check file and directory and user permissions if you run into errors.
 
 ### smart meter connection problems
 
