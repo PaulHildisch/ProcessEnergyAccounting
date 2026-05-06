@@ -1,19 +1,17 @@
-import os
-
-from dotenv import load_dotenv
-
-from database.client import DBClient
-from monitoring.monitor_client import MonitoringClient
-from monitoring.nextflow_trace_resolver import NextflowTraceResolver
-from smart_meter.client import SmartMeterAPIClient
-
-HZ = os.sysconf("SC_CLK_TCK")
 import argparse
+import os
 import threading
 import time
 from collections import deque
 from math import isfinite
 
+from dotenv import load_dotenv
+
+from database.client import DBClient
+from monitoring.monitor_client import MonitoringClient
+from smart_meter.client import SmartMeterAPIClient
+
+HZ = os.sysconf("SC_CLK_TCK")
 INFLUX_URL = "http://localhost:8086"
 INFLUX_TOKEN = "my-super-secret-auth-token"
 INFLUX_ORG = "myorg"
@@ -284,21 +282,6 @@ if __name__ == "__main__":
         default="L1",
         help="Sensor id to read from smart meter (default: L1)",
     )
-    parser.add_argument(
-        "--nextflow-trace",
-        default=None,
-        help="Path to Nextflow trace file generated with -with-trace",
-    )
-    parser.add_argument(
-        "--workflow-run-id",
-        default=None,
-        help="Stable workflow run identifier used for grouping workflow energy",
-    )
-    parser.add_argument(
-        "--pipeline-name",
-        default="",
-        help="Pipeline name stored with each resolved Nextflow task",
-    )
 
     args = parser.parse_args()
 
@@ -321,19 +304,6 @@ if __name__ == "__main__":
         username=args.meter_user,
         password=args.meter_password,
     )
-    workflow_run_id = args.workflow_run_id
-    if args.nextflow_trace and not workflow_run_id:
-        workflow_run_id = (
-            os.path.basename(os.path.dirname(args.nextflow_trace)) or "nextflow-run"
-        )
-
-    workflow_resolver = None
-    if args.nextflow_trace:
-        workflow_resolver = NextflowTraceResolver(
-            trace_path=args.nextflow_trace,
-            workflow_run_id=workflow_run_id or "nextflow-run",
-            pipeline_name=args.pipeline_name,
-        )
 
     monitor = DeltaAggregator(
         interval=args.interval,
@@ -341,7 +311,6 @@ if __name__ == "__main__":
         db_client=db_client,
         meter_client=meter_client,
         meter_sensor_id=args.meter_sensor_id,
-        workflow_resolver=workflow_resolver,
     )
 
     monitor.start()

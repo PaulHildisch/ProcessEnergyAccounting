@@ -80,6 +80,7 @@ sudo apt-get install -y \
     llvm-14-tools \
     libssl-dev \
     python3 \
+    zip \
     python3-pip \
     python3-venv \
     linux-headers-$(uname -r) \
