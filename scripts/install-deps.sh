@@ -5,7 +5,8 @@ set -e
 # If a Python virtual environment is active, the Python BCC bindings are installed into that environment.
 
 PROJECT_ROOT="$(pwd)"
-BCC_SRC_DIR="${PROJECT_ROOT}/bcc-src"
+BCC_BASE_DIR="$(mktemp -d /tmp/bcc-src.XXXXXX)"
+BCC_SRC_DIR="${BCC_BASE_DIR}/bcc-src"
 BCC_BUILD_DIR="${BCC_SRC_DIR}/build"
 BCC_PY_BINDINGS_DIR="${BCC_BUILD_DIR}/src/python/bcc-python3"
 
@@ -90,11 +91,7 @@ if [[ -d "$HOME" ]]; then
 fi
 
 build_bcc() {
-    if [[ -d "$BCC_SRC_DIR" ]]; then
-        log "Removing existing BCC source directory at $BCC_SRC_DIR"
-        rm -rf "$BCC_SRC_DIR"
-    fi
-
+    log "Using temporary BCC source directory at $BCC_BASE_DIR"
     log "Cloning BCC into $BCC_SRC_DIR"
     git clone https://github.com/iovisor/bcc.git "$BCC_SRC_DIR"
 
@@ -158,6 +155,15 @@ if python3 -c "import bcc" >/dev/null 2>&1; then
 else
     log "Python BCC is not importable system-wide. Building BCC from source."
 fi
+
+cleanup() {
+    if [[ -d "$BCC_BASE_DIR" ]]; then
+        log "Cleaning up temporary BCC source directory at $BCC_BASE_DIR"
+        rm -rf "$BCC_BASE_DIR"
+    fi
+}
+
+trap cleanup EXIT
 
 build_bcc
 install_bcc_into_active_env
