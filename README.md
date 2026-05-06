@@ -233,7 +233,7 @@ This writes a process-level dataset such as:
 
 You can also use the Python loader directly through `estimation/data/data_loader.py` if you want full control over time range and aggregation window.
 
-### 4. Analysis and modeling
+### 5. Analysis and modeling
 
 The repository contains a few standalone scripts for feature exploration and modeling that works on the exported datasets of the prior step:
 
