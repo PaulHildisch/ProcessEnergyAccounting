@@ -174,6 +174,30 @@ It will:
 
 Root privileges are often required because the monitor uses BPF and performance counters.
 
+Example output:
+
+```ProcessEnergyAccounting/README.md#L1-17
+sudo $(which python) delta_aggregator.py
+Starting DeltaAggregator: interval=2.0, sample_rate=2.0
+Influx: http://localhost:8086 (org=myorg, bucket=mybucket)
+Monitoring started. Press Ctrl+C to stop.
+PIDs before cleanup:  58
+Found 57 unique PIDs in BPF tables (after cleanup)
+Items in Syscall Count Table:  95
+Items in Syscall Count Table after cleanup:  95
+Total CPU time (sum):  22480672
+Total CPU time (bpf):  22191007
+Process list generated in 0.01 seconds
+PIDs before cleanup:  66
+Found 65 unique PIDs in BPF tables (after cleanup)
+Items in Syscall Count Table:  103
+Items in Syscall Count Table after cleanup:  103
+Total CPU time (sum):  195661425
+Total CPU time (bpf):  195387613
+Process list generated in 0.01 seconds
+[11:02:35] delta count: 57, avg_power: 676.0, interval_energy: 1352.126519203186
+```
+
 ### 2. Run your workload
 
 While the monitor is running, start whatever workload you want to measure.
