@@ -30,7 +30,7 @@ You need:
 - a compatible smart meter reachable over HTTP or HTTPS
 - root privileges for monitoring on most systems
 
-Some monitoring features rely on **BCC/eBPF** and Linux performance counters, so the machine must support that setup.
+Some monitoring features rely on **BCC/eBPF** and Linux performance counters from **Perf**, so the machine must support that setup.
 
 Required Python packages:
 
