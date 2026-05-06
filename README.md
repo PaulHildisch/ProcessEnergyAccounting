@@ -161,7 +161,7 @@ SMARTMETER_PASSWORD=replace-with-smart-meter-password
 
 Run:
 
-- `sudo poetry run python delta_aggregator.py --interval 2 --sample-rate 0.5`
+- `sudo $(which python) delta_aggregator.py --interval 2 --sample-rate 0.5`
 
 This starts the main monitoring loop.
 
