@@ -104,6 +104,8 @@ build_bcc() {
         make
         log "Installing BCC core system components"
         sudo make install
+        log "Restoring ownership of the BCC source tree after sudo install"
+        sudo chown -R "$USER":"$(id -gn)" "$BCC_SRC_DIR"
         log "Configuring Python 3 bindings"
         cmake -DPYTHON_CMD=python3 ..
     )
@@ -143,14 +145,14 @@ install_bcc_into_active_env() {
         "$env_pip" install .
     )
 
-    if "$env_python" -c "import bcc; print('SUCCESS: bcc imported from', bcc.__file__)"; then
+    if "$env_python" -c "from bcc import BPF; import bcc; print('SUCCESS: bcc imported from', bcc.__file__)"; then
         log "BCC Python bindings installed successfully into $env_desc"
     else
-        error "BCC Python bindings were installed, but import bcc still failed in $env_desc"
+        error "BCC Python bindings were installed, but 'from bcc import BPF' still failed in $env_desc"
     fi
 }
 
-if python3 -c "import bcc" >/dev/null 2>&1; then
+if python3 -c "from bcc import BPF" >/dev/null 2>&1; then
     log "Python BCC is already importable system-wide."
 else
     log "Python BCC is not importable system-wide. Building BCC from source."
