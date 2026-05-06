@@ -32,6 +32,24 @@ You need:
 
 Some monitoring features rely on **BCC/eBPF** and Linux performance counters, so the machine must support that setup.
 
+Required Python packages:
+
+- `pandas`
+- `numpy`
+- `psutil`
+- `influxdb-client`
+- `requests`
+- `pyyaml`
+- `cvxpy` 
+- `scikit-learn` 
+- `matplotlib`
+
+For Linux perf counters, a permissive setup is often needed. Example:
+
+- `echo 0 | sudo tee /proc/sys/kernel/perf_event_paranoid`
+
+Depending on your system, you may also want to make this persistent through `sysctl`.
+
 ## Installation
 
 ### 1. Set up the Python environment
@@ -174,6 +192,15 @@ For example, `scripts/run_daw_load_generation.sh` creates a reproducible session
 When the workload is finished, stop `delta_aggregator.py`.
 
 At that point, the recorded interval data is stored in InfluxDB.
+
+### 4. Analysis and modeling
+
+The repository contains a few standalone scripts for feature exploration and simple model experiments:
+
+- `estimation/feature_selection/feature_selection.py` — exploratory feature analysis, correlations, lag checks, etc.
+
+- `estimation/feature_selection/sfs.py` — sequential forward selection that greedily adds features based on test R² improvement
+- `cvxpy_estimator.py` — a direct CVXPY-based estimator workflow that trains a sparse interval-energy model and produces diagnostic plots
 
 ## Exporting data
 
