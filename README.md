@@ -63,8 +63,8 @@ If you run the script from the project directory, it can usually figure out the 
 Recommended order:
 
 1. create the Python environment with `bash scripts/py-env.sh`
-2. activate that environment if you want to work inside it
-3. run `bash scripts/install-deps.sh` so the BCC Python bindings can also be installed into the active environment when needed
+2. activate that environment using the **source/home/<user>.../.venv.bin/activate** command
+3. run `bash scripts/install-deps.sh` (make scripts executable) so the system dependecies such as BCC Python bindings can also be installed into the active environment
 
 Recommended setup:
 
@@ -74,21 +74,15 @@ If you want to recreate the environment from scratch:
 
 - `bash scripts/py-env.sh --clean --force`
 
-If your machine only provides `bcc` through system Python packages, try:
-
-- `bash scripts/py-env.sh --system-python`
-
 At the end, the script prints the environment location and how to activate it. For a Poetry environment, that is typically one of these:
 
 - `source "$(poetry env info -p)/bin/activate"`
-- `poetry run python ...`
+- `python ...` or if elevated priviledges are needed use `sudo + python venv path`
 
 A practical setup flow is therefore:
 
 - `bash scripts/py-env.sh`
 - `source "$(poetry env info -p)/bin/activate"`
-
-If `bcc` is still missing afterward, check whether `scripts/install-deps.sh` was run while the correct environment was active.
 
 ### 2. Install system dependencies
 
