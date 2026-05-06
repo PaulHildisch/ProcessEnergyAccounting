@@ -446,7 +446,6 @@ print_summary() {
       echo "Unknown environment type: $tool"
       ;;
   esac
-  echo -e "${c_bold}${c_green}========================================${c_reset}\n"
 }
 
 main "$@"

@@ -1,26 +1,55 @@
 #!/bin/bash
 set -e
 
-# Use the user-setup script to get the user env on the remote where the experiments will run.
+# Installs system dependencies and builds BCC from source.
+# If a Python virtual environment is active, the Python BCC bindings are installed into that environment.
+
+PROJECT_ROOT="$(pwd)"
+BCC_SRC_DIR="${PROJECT_ROOT}/bcc-src"
+BCC_BUILD_DIR="${BCC_SRC_DIR}/build"
+BCC_PY_BINDINGS_DIR="${BCC_BUILD_DIR}/src/python/bcc-python3"
+
+log() {
+    echo "[INFO] $*"
+}
+
+warn() {
+    echo "[WARN] $*" >&2
+}
+
+error() {
+    echo "[ERROR] $*" >&2
+    exit 1
+}
 
 # Make sure docker and docker-compose are installed
-if ! command -v docker &> /dev/null
-then
-    echo "Docker not found. Installing Docker..."
-    # Install Docker (Ubuntu/Debian example)
+if ! command -v docker >/dev/null 2>&1; then
+    log "Docker not found. Installing Docker..."
     sudo apt-get update
     sudo apt-get install -y docker.io
     sudo systemctl enable --now docker
 else
-    echo "Docker is already installed."
+    log "Docker is already installed."
 fi
 
-if ! command -v docker-compose &> /dev/null
-then
-    echo "docker-compose not found. Installing docker-compose..."
+if ! command -v docker-compose >/dev/null 2>&1; then
+    log "docker-compose not found. Installing docker-compose..."
     sudo apt-get install -y docker-compose
 else
-    echo "docker-compose is already installed."
+    log "docker-compose is already installed."
+fi
+
+# Helpful guidance for non-root Docker usage
+if getent group docker >/dev/null 2>&1; then
+    if id -nG "$USER" | grep -qw docker; then
+        log "User '$USER' is already in the docker group."
+    else
+        warn "User '$USER' is not in the docker group."
+        warn "To avoid Docker permission errors, run: sudo usermod -aG docker $USER"
+        warn "Then log out and back in before using Docker without sudo."
+    fi
+else
+    warn "docker group not found. It should normally be created by the Docker package."
 fi
 
 # Install python BCC and the necessary build tools to install bcc from scratch
@@ -55,88 +84,80 @@ sudo apt-get install -y \
     linux-headers-$(uname -r) \
     $PY_DISTUTILS
 
-# Always check for active venv or Poetry and install BCC Python bindings there if needed
-
-if [ -n "$VIRTUAL_ENV" ] || [ -n "$POETRY_ACTIVE" ]; then
-    if [ -n "$VIRTUAL_ENV" ]; then
-        VENV_PYTHON="python"
-        VENV_PIP="pip"
-        ENV_DESC="Python virtual environment at $VIRTUAL_ENV"
-    elif [ -n "$POETRY_ACTIVE" ]; then
-        VENV_PYTHON="python"
-        VENV_PIP="pip"
-        ENV_DESC="Poetry environment"
-    fi
-
-    echo "Detected active $ENV_DESC"
-    if $VENV_PYTHON -c "import bcc" &> /dev/null; then
-        echo "Python BCC is already installed and importable in the active environment. Skipping BCC build."
-    else
-        # Remove existing bcc directory with sudo to avoid permission issues
-        if [ -d "bcc" ]; then
-            echo "Removing existing bcc directory..."
-            sudo rm -rf bcc
-        fi
-
-        git clone https://github.com/iovisor/bcc.git
-        mkdir bcc/build; cd bcc/build
-        cmake ..
-        make
-        sudo make install
-        cmake -DPYTHON_CMD=python3 .. # build python3 binding
-
-        if [ -d src/python/bcc-python3 ]; then
-            pushd src/python/bcc-python3
-            # Try pip install first
-            $VENV_PIP install .
-            if $VENV_PYTHON -c "import bcc; print('SUCCESS: bcc imported from', bcc.__file__)"; then
-                echo "BCC Python bindings installed via pip."
-            else
-                echo "ERROR: Could not import bcc in the active environment after pip install."
-                echo "Would you like to manually copy the BCC Python package to your Poetry venv site-packages? (y/n)"
-                read -r CONFIRM_BCC_COPY
-                if [ "$CONFIRM_BCC_COPY" = "y" ]; then
-                    PROJECT_DIR="$(pwd)"
-                    echo "Switching to project directory: $PROJECT_DIR"
-                    VENV=$($VENV_PYTHON -c "import sys; print(sys.prefix)")
-                    cp -r ~/bcc/build/src/python/bcc-python3/bcc "$VENV/lib/python3.12/site-packages/"
-                    $VENV_PYTHON -c "import bcc; print('SUCCESS: bcc imported from', bcc.__file__)" \
-                        || echo "ERROR: Manual copy failed. Please check permissions and paths."
-                else
-                    echo "Skipping manual copy of BCC Python package."
-                fi
-            fi
-            popd
-        else
-            echo "src/python/bcc-python3 directory not found, skipping python BCC pip install."
-        fi
-    fi
-else
-    # No active venv or Poetry: check system install
-    if python3 -c "import bcc" &> /dev/null; then
-        echo "Python BCC is already installed and importable system-wide. Skipping BCC build."
-    else
-        # Remove existing bcc directory with sudo to avoid permission issues
-        if [ -d "bcc" ]; then
-            echo "Removing existing bcc directory..."
-            sudo rm -rf bcc
-        fi
-
-        git clone https://github.com/iovisor/bcc.git
-        mkdir bcc/build; cd bcc/build
-        cmake ..
-        make
-        sudo make install
-        cmake -DPYTHON_CMD=python3 .. # build python3 binding
-
-        if [ -d src/python/bcc-python3 ]; then
-            pushd src/python/bcc-python3
-            sudo $VENV_PIP install .
-            python3 -c "import bcc; print('SUCCESS: bcc imported from', bcc.__file__)" \
-                || echo "ERROR: Could not import bcc system-wide."
-            popd
-        else
-            echo "src/python/bcc-python3 directory not found, skipping python BCC pip install."
-        fi
-    fi
+# Mark shell scripts under HOME executable if they are not already.
+if [[ -d "$HOME" ]]; then
+    find "$HOME" -type f -name '*.sh' -exec chmod +x {} + 2>/dev/null || true
 fi
+
+build_bcc() {
+    if [[ -d "$BCC_SRC_DIR" ]]; then
+        log "Removing existing BCC source directory at $BCC_SRC_DIR"
+        rm -rf "$BCC_SRC_DIR"
+    fi
+
+    log "Cloning BCC into $BCC_SRC_DIR"
+    git clone https://github.com/iovisor/bcc.git "$BCC_SRC_DIR"
+
+    mkdir -p "$BCC_BUILD_DIR"
+    (
+        cd "$BCC_BUILD_DIR"
+        log "Configuring BCC core build"
+        cmake ..
+        log "Building BCC core"
+        make
+        log "Installing BCC core system components"
+        sudo make install
+        log "Configuring Python 3 bindings"
+        cmake -DPYTHON_CMD=python3 ..
+    )
+
+    if [[ ! -d "$BCC_PY_BINDINGS_DIR" ]]; then
+        error "Expected Python bindings directory not found: $BCC_PY_BINDINGS_DIR"
+    fi
+}
+
+install_bcc_into_active_env() {
+    local env_python=""
+    local env_pip=""
+    local env_desc=""
+
+    if [[ -n "$VIRTUAL_ENV" ]]; then
+        env_python="$VIRTUAL_ENV/bin/python"
+        env_pip="$VIRTUAL_ENV/bin/pip"
+        env_desc="virtual environment at $VIRTUAL_ENV"
+    elif [[ -d "${PROJECT_ROOT}/.venv" ]]; then
+        env_python="${PROJECT_ROOT}/.venv/bin/python"
+        env_pip="${PROJECT_ROOT}/.venv/bin/pip"
+        env_desc="project virtual environment at ${PROJECT_ROOT}/.venv"
+    else
+        warn "No active virtual environment detected and no project .venv found."
+        warn "BCC core was built in $BCC_SRC_DIR, but Python bindings were not installed into a project environment."
+        warn "Activate your venv and run: cd $BCC_PY_BINDINGS_DIR && pip install ."
+        return 0
+    fi
+
+    if [[ ! -x "$env_python" || ! -x "$env_pip" ]]; then
+        error "Could not find python/pip for $env_desc"
+    fi
+
+    log "Installing Python BCC bindings into $env_desc"
+    (
+        cd "$BCC_PY_BINDINGS_DIR"
+        "$env_pip" install .
+    )
+
+    if "$env_python" -c "import bcc; print('SUCCESS: bcc imported from', bcc.__file__)"; then
+        log "BCC Python bindings installed successfully into $env_desc"
+    else
+        error "BCC Python bindings were installed, but import bcc still failed in $env_desc"
+    fi
+}
+
+if python3 -c "import bcc" >/dev/null 2>&1; then
+    log "Python BCC is already importable system-wide."
+else
+    log "Python BCC is not importable system-wide. Building BCC from source."
+fi
+
+build_bcc
+install_bcc_into_active_env
