@@ -37,21 +37,31 @@ CANDIDATE_FEATURES = [
     "syscall_class_time",
 ]
 
-parser = argparse.ArgumentParser(description="Sequential forward selection for energy model")
-parser.add_argument("--data", default="runs/benchmark-siena06-v6/process_interval_data.parquet")
+parser = argparse.ArgumentParser(
+    description="Sequential forward selection for energy model"
+)
+parser.add_argument(
+    "--data", default="runs/benchmark-siena06-v6/process_interval_data.parquet"
+)
 parser.add_argument("--l1-penalty", type=float, default=0.1)
-parser.add_argument("--min-gain", type=float, default=0.01, help="Minimum R² improvement to keep adding features")
+parser.add_argument(
+    "--min-gain",
+    type=float,
+    default=0.01,
+    help="Minimum R² improvement to keep adding features",
+)
 parser.add_argument("--test-size", type=float, default=0.2)
 args = parser.parse_args()
 
-# ── Load data ──────────────────────────────────────────────────────────────────
+
+# ==== LOAD DATA ====
 print(f"Loading {args.data} ...")
 df = pd.read_parquet(args.data)
 df["_time"] = pd.to_datetime(df["_time"]).dt.round("1ms")
 
-# Filter to only features that exist in the dataset
-available = [f for f in CANDIDATE_FEATURES if f in df.columns]
-missing = [f for f in CANDIDATE_FEATURES if f not in df.columns]
+# Keep only candidate features that are present in the dataset.
+available = [feature for feature in CANDIDATE_FEATURES if feature in df.columns]
+missing = [feature for feature in CANDIDATE_FEATURES if feature not in df.columns]
 if missing:
     print(f"Skipping (not in dataset): {missing}")
 
@@ -65,10 +75,18 @@ interval_energy_all = (
 )
 df = df[df["_time"].isin(interval_energy_all.index)]
 
+
+# ==== TRAIN / TEST SPLIT ====
 time_values = interval_energy_all.index.sort_values()
-train_times, test_times = train_test_split(time_values, test_size=args.test_size, shuffle=False)
+train_times, test_times = train_test_split(
+    time_values,
+    test_size=args.test_size,
+    shuffle=False,
+)
+
 interval_energy_train = interval_energy_all.loc[train_times]
 interval_energy_test = interval_energy_all.loc[test_times]
+
 df_train = df[df["_time"].isin(train_times)].copy()
 df_test = df[df["_time"].isin(test_times)].copy()
 
@@ -76,13 +94,14 @@ print(f"Train intervals: {len(train_times)}  |  Test intervals: {len(test_times)
 print(f"Candidate features: {available}\n")
 
 
-# ── CVXPY training ─────────────────────────────────────────────────────────────
+# ==== CVXPY TRAINING ====
 def train_and_evaluate(features):
     df_tr = df_train.copy()
     df_tr[features] = df_tr[features].fillna(0)
     df_tr = df_tr[df_tr["_time"].isin(interval_energy_train.index)].sort_values("_time")
     ie_tr = interval_energy_train.sort_index()
 
+    # Aggregate process features per interval.
     df_agg = df_tr.groupby("_time")[features].sum()
     df_agg = df_agg.reindex(ie_tr.index).fillna(0)
 
@@ -103,7 +122,7 @@ def train_and_evaluate(features):
     weights = w.value
     static_energy = s.value
 
-    # Evaluate on test set
+    # Evaluate on the held-out test intervals.
     df_te = df_test.copy()
     df_te[features] = df_te[features].fillna(0)
     df_te[features] = scaler.transform(df_te[features])
@@ -119,7 +138,7 @@ def train_and_evaluate(features):
     return r2, mae, dict(zip(features, weights))
 
 
-# ── Sequential Forward Selection ───────────────────────────────────────────────
+# ==== SEQUENTIAL FORWARD SELECTION ====
 selected = []
 remaining = list(available)
 best_r2 = -np.inf
@@ -138,7 +157,13 @@ while remaining:
         r2, mae, weights = train_and_evaluate(candidate_set)
         if r2 is None:
             continue
-        print(f"  [{'+'.join(candidate_set)}]  R²={r2:.4f}  MAE%={100*mae/interval_energy_test.mean():.2f}%")
+
+        print(
+            f"  [{'+'.join(candidate_set)}]  "
+            f"R²={r2:.4f}  "
+            f"MAE%={100 * mae / interval_energy_test.mean():.2f}%"
+        )
+
         if r2 > step_best_r2:
             step_best_r2 = r2
             step_best_feature = feature
@@ -155,29 +180,43 @@ while remaining:
     best_r2 = step_best_r2
 
     mean_energy = interval_energy_test.mean()
-    results_log.append({
-        "step": len(selected),
-        "added": step_best_feature,
-        "features": list(selected),
-        "r2": step_best_r2,
-        "mae_pct": 100 * step_best_mae / mean_energy,
-        "weights": step_best_weights,
-    })
+    results_log.append(
+        {
+            "step": len(selected),
+            "added": step_best_feature,
+            "features": list(selected),
+            "r2": step_best_r2,
+            "mae_pct": 100 * step_best_mae / mean_energy,
+            "weights": step_best_weights,
+        }
+    )
 
-    print(f"\n→ Step {len(selected)}: added '{step_best_feature}'  R²={step_best_r2:.4f}  MAE%={100*step_best_mae/mean_energy:.2f}%")
+    print(
+        f"\n→ Step {len(selected)}: added '{step_best_feature}'  "
+        f"R²={step_best_r2:.4f}  "
+        f"MAE%={100 * step_best_mae / mean_energy:.2f}%"
+    )
     print(f"  Selected so far: {selected}\n")
 
-# ── Summary ────────────────────────────────────────────────────────────────────
+
+# ==== SUMMARY ====
 print("\n=== Summary ===")
 print(f"{'Step':<6} {'Added Feature':<35} {'R²':>8} {'MAE%':>8}  Features")
 print("-" * 90)
-for r in results_log:
-    print(f"{r['step']:<6} {r['added']:<35} {r['r2']:>8.4f} {r['mae_pct']:>7.2f}%  {r['features']}")
+
+for result in results_log:
+    print(
+        f"{result['step']:<6} "
+        f"{result['added']:<35} "
+        f"{result['r2']:>8.4f} "
+        f"{result['mae_pct']:>7.2f}%  "
+        f"{result['features']}"
+    )
 
 if results_log:
     best = max(results_log, key=lambda x: x["r2"])
     print(f"\nBest combination (R²={best['r2']:.4f}, MAE%={best['mae_pct']:.2f}%):")
     print(f"  {best['features']}")
-    print(f"\nWeights:")
-    for f, w in best["weights"].items():
-        print(f"  {f}: {w:.4e}")
+    print("\nWeights:")
+    for feature, weight in best["weights"].items():
+        print(f"  {feature}: {weight:.4e}")
