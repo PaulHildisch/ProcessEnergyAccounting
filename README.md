@@ -289,3 +289,4 @@ Check:
 - `SMARTMETER_SSL`
 
 If the device only supports HTTPS, set `SMARTMETER_SSL=true`.
+
