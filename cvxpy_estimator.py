@@ -32,7 +32,8 @@ static_penalty = 0.00
 
 
 # ==== LOAD AND PREPARE DATA ====
-df = pd.read_parquet("runs/benchmark-siena06-v6/process_interval_data.parquet")
+#df = pd.read_parquet("runs/benchmark-siena06-v6/process_interval_data.parquet")
+df = pd.read_parquet("runs/stressng-custom-1779037649/datasets/process_interval_data.parquet")
 df["_time"] = pd.to_datetime(df["_time"]).dt.round("1ms")
 df[good_features] = df[good_features].fillna(0)
 

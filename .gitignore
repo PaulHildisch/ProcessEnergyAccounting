@@ -1,0 +1,8 @@
+.env
+
+.nextflow/
+.nextflow.log*
+**/__pycache__
+runs/
+poetry.toml
+generated_documents/

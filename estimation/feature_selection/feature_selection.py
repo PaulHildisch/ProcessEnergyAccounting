@@ -3,7 +3,7 @@ import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from estimation.regression import train_process_metrics_regression
+#from estimation.regression import train_process_metrics_regression
 from sklearn.metrics import mean_absolute_error, r2_score
 
 DEFAULT_DATA_PATH = "estimation/data/process_interval_data.parquet"
@@ -204,82 +204,82 @@ for lag in range(1, max_lag + 1):
     print(f"\n--- Lag {lag} ---")
     print(corr["lagged_energy"].sort_values(ascending=False).head(5))
 
-
+#Commented because the needed model doesn't exist in this project?
 # ==== SMALL REGRESSION EXAMPLE ====
-good_features = [
-    "delta_cpu_ns",
-    "syscall_count",
-    "syscall_class_file",
-    "syscall_class_other",
-]
+# good_features = [
+#     "delta_cpu_ns",
+#     "syscall_count",
+#     "syscall_class_file",
+#     "syscall_class_other",
+# ]
 
-df["syscall_class_file"] = df["syscall_class_file"].fillna(0)
-df["syscall_class_other"] = df["syscall_class_other"].fillna(0)
+# df["syscall_class_file"] = df["syscall_class_file"].fillna(0)
+# df["syscall_class_other"] = df["syscall_class_other"].fillna(0)
 
-nan_report = df[good_features].isna().sum()
-print("NaNs per feature:\n", nan_report[nan_report > 0])
+# nan_report = df[good_features].isna().sum()
+# print("NaNs per feature:\n", nan_report[nan_report > 0])
 
-results = train_process_metrics_regression(df, good_features, interval_energy)
+# results = train_process_metrics_regression(df, good_features, interval_energy)
 
-weights = results["weights"]
-static_energy = results["static_energy"]
-scaler = results["scaler"]
+# weights = results["weights"]
+# static_energy = results["static_energy"]
+# scaler = results["scaler"]
 
-print("Learned weights:", dict(zip(good_features, weights)))
-print("Static energy component:", static_energy)
+# print("Learned weights:", dict(zip(good_features, weights)))
+# print("Static energy component:", static_energy)
 
-df_scaled = df.copy()
-df_scaled[good_features] = results["scaler"].transform(df_scaled[good_features])
-df_scaled["predicted_process_energy"] = (
-    df_scaled[good_features].values @ results["weights"]
-)
+# df_scaled = df.copy()
+# df_scaled[good_features] = results["scaler"].transform(df_scaled[good_features])
+# df_scaled["predicted_process_energy"] = (
+#     df_scaled[good_features].values @ results["weights"]
+# )
 
-df_pred = df_scaled.groupby("_time")["predicted_process_energy"].sum().reset_index()
-df_pred = df_pred.merge(
-    df[["_time", "interval_energy"]].drop_duplicates("_time"), on="_time"
-)
-df_pred["predicted_total_energy"] = (
-    df_pred["predicted_process_energy"] + results["static_energy"]
-)
+# df_pred = df_scaled.groupby("_time")["predicted_process_energy"].sum().reset_index()
+# df_pred = df_pred.merge(
+#     df[["_time", "interval_energy"]].drop_duplicates("_time"), on="_time"
+# )
+# df_pred["predicted_total_energy"] = (
+#     df_pred["predicted_process_energy"] + results["static_energy"]
+# )
 
-r2 = r2_score(df_pred["interval_energy"], df_pred["predicted_total_energy"])
-mae = mean_absolute_error(df_pred["interval_energy"], df_pred["predicted_total_energy"])
-print(f"R² (interval-level): {r2:.4f}")
-print(f"MAE (interval-level): {mae:.4f}")
-print(f"Static energy per interval: {results['static_energy']:.4f}")
+# r2 = r2_score(df_pred["interval_energy"], df_pred["predicted_total_energy"])
+# mae = mean_absolute_error(df_pred["interval_energy"], df_pred["predicted_total_energy"])
+# print(f"R² (interval-level): {r2:.4f}")
+# print(f"MAE (interval-level): {mae:.4f}")
+# print(f"Static energy per interval: {results['static_energy']:.4f}")
 
 
-# ==== PLOTS: REGRESSION EXAMPLE ====
-plt.figure(figsize=(14, 6))
-plt.plot(
-    df_pred["_time"],
-    df_pred["interval_energy"],
-    label="Actual Energy",
-    linewidth=4.5,
-)
-plt.plot(
-    df_pred["_time"],
-    df_pred["predicted_total_energy"],
-    label="Predicted Energy",
-    linestyle="--",
-    linewidth=4.5,
-)
-plt.xlabel("Time")
-plt.ylabel("Interval Energy")
-plt.title("Actual vs Predicted Total Interval Energy")
-plt.legend()
-plt.tight_layout()
-plt.show()
+# # ==== PLOTS: REGRESSION EXAMPLE ====
+# plt.figure(figsize=(14, 6))
+# plt.plot(
+#     df_pred["_time"],
+#     df_pred["interval_energy"],
+#     label="Actual Energy",
+#     linewidth=4.5,
+# )
+# plt.plot(
+#     df_pred["_time"],
+#     df_pred["predicted_total_energy"],
+#     label="Predicted Energy",
+#     linestyle="--",
+#     linewidth=4.5,
+# )
+# plt.xlabel("Time")
+# plt.ylabel("Interval Energy")
+# plt.title("Actual vs Predicted Total Interval Energy")
+# plt.legend()
+# plt.tight_layout()
+# plt.show()
 
-plt.figure(figsize=(14, 4))
-plt.plot(
-    df_pred["_time"],
-    df_pred["interval_energy"] - df_pred["predicted_total_energy"],
-    label="Error",
-)
-plt.axhline(0, color="gray", linestyle="--")
-plt.ylabel("Prediction Error")
-plt.xlabel("Time")
-plt.title("Prediction Error Over Time")
-plt.tight_layout()
-plt.show()
+# plt.figure(figsize=(14, 4))
+# plt.plot(
+#     df_pred["_time"],
+#     df_pred["interval_energy"] - df_pred["predicted_total_energy"],
+#     label="Error",
+# )
+# plt.axhline(0, color="gray", linestyle="--")
+# plt.ylabel("Prediction Error")
+# plt.xlabel("Time")
+# plt.title("Prediction Error Over Time")
+# plt.tight_layout()
+# plt.show()
