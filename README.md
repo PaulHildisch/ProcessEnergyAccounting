@@ -1,6 +1,6 @@
 # Process Energy Accounting
 
-** Forked from (https://github.com/MPDS-DOS/ProcessEnergyAccounting.git)[https://github.com/MPDS-DOS/ProcessEnergyAccounting.git] **
+**Forked from (https://github.com/MPDS-DOS/ProcessEnergyAccounting.git)[https://github.com/MPDS-DOS/ProcessEnergyAccounting.git]**
 
 This repository collects **machine power measurements** together with **per-process runtime metrics** and stores them in **InfluxDB**. Its main purpose is to create datasets for later energy analysis and attribution.
 
