@@ -265,6 +265,10 @@ Important files and directories:
 
 ## Common issues
 
+### nf-core pipeline fails
+Nextflow on version 26 has breaking changes compared to version 25. Some of the (pipelines)[scripts/nfcore_test_pipelines.txt] configs might fail to parse on the newer version.
+Downgrading (explained (here)[https://docs.seqera.io/nextflow/install#standalone-distribution]) to version `25.10.4` works with the versions defined in the (pipelinesfile)[scripts/nfcore_test_pipelines.txt]
+
 ### `ModuleNotFoundError: No module named 'bcc'`
 
 Your Python environment cannot see the BCC bindings.
