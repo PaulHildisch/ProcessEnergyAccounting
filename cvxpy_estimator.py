@@ -33,7 +33,8 @@ static_penalty = 0.00
 
 # ==== LOAD AND PREPARE DATA ====
 #df = pd.read_parquet("runs/benchmark-siena06-v6/process_interval_data.parquet")
-df = pd.read_parquet("runs/stressng-custom-1779037649/datasets/process_interval_data.parquet")
+df = pd.read_parquet("data/process_interval_data_wf.parquet")
+#df = pd.read_parquet("data/data.parquet")
 df["_time"] = pd.to_datetime(df["_time"]).dt.round("1ms")
 df[good_features] = df[good_features].fillna(0)
 
@@ -179,7 +180,7 @@ ax.set_title("Actual vs. Predicted Interval energy", fontsize=13, pad=6)
 
 plt.tight_layout(pad=0.5)
 plt.savefig("actual_vs_predicted_interval_energy.pdf", bbox_inches="tight")
-plt.savefig("actual_vs_predicted_interval_energy.png", bbox_inches="tight", dpi=3000)
+plt.savefig("actual_vs_predicted_interval_energy.png", bbox_inches="tight", dpi=300)
 plt.show()
 
 plt.figure(figsize=(14, 4))
@@ -304,7 +305,7 @@ ax.set_title("Per-Process Energy Contribution Over Time", fontsize=13, pad=6)
 
 plt.tight_layout(pad=0.5)
 plt.savefig("per_process_energy_contribution.pdf", bbox_inches="tight")
-plt.savefig("per_process_energy_contribution.png", bbox_inches="tight", dpi=3000)
+plt.savefig("per_process_energy_contribution.png", bbox_inches="tight", dpi=300)
 plt.show()
 
 
