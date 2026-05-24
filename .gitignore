@@ -1,4 +1,5 @@
 .env
+.venv/
 
 .nextflow/
 .nextflow.log*
@@ -6,3 +7,4 @@
 runs/
 poetry.toml
 generated_documents/
+
