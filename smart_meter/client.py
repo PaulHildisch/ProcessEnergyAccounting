@@ -78,13 +78,17 @@ class SmartMeterAPIClient:
         else:
             params = {"components": components + self.EXTENDED}
 
-        resp = requests.get(
-            self.base_url,
-            params=params,
-            verify=False,
-            auth=self.auth,
-            timeout=self.timeout,
-        )
+        try: 
+            resp = requests.get(
+                self.base_url,
+                params=params,
+                verify=False,
+                auth=self.auth,
+                timeout=self.timeout,
+            )
+        except (requests.exceptions.ConnectionError, ConnectionRefusedError) as E:
+            raise ConnectionError from E
+    
         resp.raise_for_status()
         return resp.json()
 

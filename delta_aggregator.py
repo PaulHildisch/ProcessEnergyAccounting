@@ -36,6 +36,7 @@ class DeltaAggregator:
         meter_client=None,
         meter_sensor_id="L1",
         workflow_resolver=None,
+        max_powermeter_timeout=120,
     ):
         self.monitor = MonitoringClient()
         self.interval = interval
@@ -47,6 +48,7 @@ class DeltaAggregator:
         self.snapshots = deque(maxlen=2)  # Store only last two process metric snapshots
         self.running = False
         self.thread = threading.Thread(target=self._collect, daemon=True)
+        self.max_timeout = max_powermeter_timeout
 
     def start(self):
         self.running = True
@@ -57,7 +59,10 @@ class DeltaAggregator:
         self.thread.join()
 
     def _collect(self):
+        connectionErrorCounter = 0
         while self.running:
+
+            # Record power consumption per interval
             interval_start = time.time()
             power_samples = []
             while (time.time() - interval_start) < self.interval:
@@ -65,11 +70,25 @@ class DeltaAggregator:
 
                 # Skip recording of power consumption in case monitoring has been disabled
                 if meter_client is None:
-                    print("Powermeter has been disabled")
+                    print("[!] Powermeter has been disabled")
                     time.sleep(self.interval)
                     break
                 
-                meter_data = self.meter_client.get_sensor_data()
+                try: 
+                    meter_data = self.meter_client.get_sensor_data()
+                except ConnectionError:
+                    connectionErrorCounter += 1
+                    print(f"[!] Powermeter at {meter_client.base_url} is unreachable")
+                    if round(connectionErrorCounter * self.interval, 2) > self.max_timeout:
+                        print(f"[!] Powermeter was unreachable for {round(connectionErrorCounter * self.interval, 2)}s. Aborting...")
+                        self.running = False
+                        return
+                    time.sleep(self.interval)
+                    break
+
+                # Reset counter to not fail on short timeouts during a long monitoring run
+                connectionErrorCounter = 0
+
                 sensor_ids = {sid.strip() for sid in self.meter_sensor_id.split(",")}
                 matched = [s for s in meter_data if s["id"] in sensor_ids]
                 if matched:
@@ -91,10 +110,12 @@ class DeltaAggregator:
             )
             interval_energy = avg_power * actual_interval
 
+            # Record running processes & metadata
             process_data = self.monitor.get_process_list()
             self._attach_workflow_metadata(process_data)
             self.snapshots.append((interval_end, process_data))
 
+            # Store measurements in DB
             if len(self.snapshots) == 2:
                 interval, deltas = self.get_delta()
                 if deltas and self.db_client:
@@ -231,7 +252,6 @@ class DeltaAggregator:
             d = 0.0
         return d
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Run DeltaAggregator and write deltas to InfluxDB"
@@ -296,6 +316,11 @@ if __name__ == "__main__":
         default=True,
         help="Toggle usage of smart meter for developing purposes (optional)",
     )
+    parser.add_argument(
+        "--smart-meter-max-connection-timeout",
+        default=120,
+        help="Maximal time in seconds the smart-meter can be unreachable before shutting down the monitoring. Defaults to 120s",
+    )
 
     args = parser.parse_args()
 
@@ -335,6 +360,16 @@ if __name__ == "__main__":
     try:
         while True:
             time.sleep(60)
+            if not db_client.client.ping():
+                print("[!] Database is unreachable, aborting...")
+                monitor.stop()
+                db_client.close()
+                print("Monitoring stopped.")
+            if not monitor.running:
+                print("[!] Monitor exited. Closing database connection.")
+                db_client.close()
+                print("Monitoring stopped.")
+                exit(1)
     except KeyboardInterrupt:
         monitor.stop()
         db_client.close()
