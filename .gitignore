@@ -1,5 +1,6 @@
 .env
 .venv/
+.vscode
 
 .nextflow/
 .nextflow.log*
@@ -9,4 +10,5 @@ poetry.toml
 poetry.lock
 pyroject.toml
 generated_documents/
+**/plots/*.png
 
