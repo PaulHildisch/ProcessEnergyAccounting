@@ -1,10 +1,12 @@
 import pandas as pd
-import pickle
 import argparse
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import (StandardScaler)
+from sklearn.model_selection import (train_test_split)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-f", "--filepath")
+parser.add_argument("--features")
+parser.add_argument("--pid-split", action="store_true", default=False)
 
 args = parser.parse_args()
 
@@ -12,8 +14,11 @@ filename = args.filepath.split('.')[0]
 
 df = pd.read_parquet(args.filepath)
 
+# To make this dynamic we have to save the features used to train the model and read them here.
 # features = ["delta_cpu_ns", "delta_cycles", "delta_instructions", "delta_cache_misses", "delta_branch_instructions", "delta_io_bytes", "delta_net_send_bytes", "context_switches", "syscall_count", "delta_rss_memory", "syscall_class_file", "syscall_class_network", "syscall_class_memory", "syscall_class_process", "syscall_class_other", "syscall_class_sched", "syscall_class_signal", "syscall_class_time",]
 features = ['context_switches', 'syscall_class_network', 'delta_branch_instructions', 'syscall_class_time']
+if args.features:
+    print(f"--features is not implemented. Using hardcoded values: ({features})")
 
 df["_time"] = pd.to_datetime(df["_time"]).dt.round("1ms")
 
@@ -36,13 +41,7 @@ interval_energy_all = interval_energy_all.sort_index()
 
 #aggregation
 df_agg = df.groupby("_time")[features].sum()
-df_agg = df_agg.reindex(interval_energy_all.index).fillna(0)
 
-#scaling
-scaler = StandardScaler()
-df_scaled = scaler.fit_transform(df_agg)
-
-interval_energy_all.to_json(f"{filename}-actual.json")
-with open(f"{filename}-cleaned.npy", 'wb') as outfile:
-    outfile.write(pickle.dumps(df_scaled))
-
+out = pd.concat([interval_energy_all, df_agg], axis=1)
+out.to_parquet(f"{filename}-cleaned.parquet")
+print(f"Saving unscaled dataset with features \n{features}\nto \"{filename}-cleaned.parquet\"")
