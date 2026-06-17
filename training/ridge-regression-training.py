@@ -102,29 +102,6 @@ def feature_selection(df, model, feature_candidates, min_gain=0.01):
     return selected
 
 def main(args):
-    """
-    Available Features:
-        "delta_cpu_ns",
-        "delta_cycles",
-        "delta_instructions",
-        "delta_cache_misses",
-        "delta_branch_instructions",
-        "delta_io_bytes",
-        "delta_net_send_bytes",
-        "context_switches",
-        "syscall_count",
-        "delta_rss_memory",
-        "syscall_class_file",
-        "syscall_class_network",
-        "syscall_class_memory",
-        "syscall_class_process",
-        "syscall_class_other",
-        "syscall_class_sched",
-        "syscall_class_signal",
-        "syscall_class_time",
-    """
-    all_features = ["delta_cpu_ns", "delta_cycles", "delta_instructions", "delta_cache_misses", "delta_branch_instructions", "delta_io_bytes", "delta_net_send_bytes", "context_switches", "syscall_count", "delta_rss_memory", "syscall_class_file", "syscall_class_network", "syscall_class_memory", "syscall_class_process", "syscall_class_other", "syscall_class_sched", "syscall_class_signal", "syscall_class_time",]
-    
     print("Loading data...")
     df = pd.read_parquet(args.dataSource)
     selected_features = df.columns[1:]
@@ -161,7 +138,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--dataSource", default="data/nf_core_test-full_0530-4-cleaned.parquet")
+    parser.add_argument("--dataSource", required=True)
 
     args = parser.parse_args()
 
