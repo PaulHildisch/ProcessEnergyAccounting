@@ -133,6 +133,7 @@ plt.title("Pearson Correlation (Features vs. Interval Energy)", fontsize=14)
 plt.xticks(rotation=35, ha="right", fontsize=10)
 plt.tight_layout()
 plt.grid(axis="y", linestyle=":", alpha=0.4)
+plt.savefig("pearson_correlation.png", dpi=3000)
 plt.show()
 
 

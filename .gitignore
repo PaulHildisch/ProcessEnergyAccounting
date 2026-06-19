@@ -1,8 +1,15 @@
 .env
+.venv/
+.vscode
 
 .nextflow/
 .nextflow.log*
 **/__pycache__
 runs/
 poetry.toml
+poetry.lock
+pyroject.toml
 generated_documents/
+**/plots/*.png
+**/data/**.parquet
+
