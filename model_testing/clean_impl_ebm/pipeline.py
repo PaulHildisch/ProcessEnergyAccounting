@@ -4,10 +4,10 @@ from plotting import Plotter
 import pandas as pd
 
 
-DATA_PATH  = pd.read_parquet("data/process_interval_data_wf.parquet")
+DATA_PATH  = "data/process_interval_data_wf.parquet"
 data  = pd.read_parquet(DATA_PATH)
 
-good_features = ['context_switches', 'syscall_class_network', 'syscall_class_sched', 'delta_cycles', 'delta_branch_instructions', 'syscall_class_signal']
+good_features = ['delta_io_bytes', 'delta_cycles', 'delta_cpu_ns', 'delta_branch_instructions', 'syscall_class_signal']
 alg_name = "ebm"
 
 preprocessor = Preprocessor(data, good_features)
