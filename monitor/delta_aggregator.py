@@ -188,8 +188,15 @@ class DeltaAggregator:
                             pid_to_container=pid_to_container,
                         )
                     elif self.db_client and self.meter_client:
-                        print(
-                            f"[{time.strftime('%X')}] delta count: {len(deltas)}, avg_power: {avg_power}, interval_energy: {interval_energy}"
+                        process_delta_samples = [
+                            metrics for _pid, metrics in sorted(deltas.items())[:2]
+                        ]
+                        logging.info(
+                            "delta count=%s avg_power=%s interval_energy=%s sample_process_deltas=%s",
+                            len(deltas),
+                            avg_power,
+                            interval_energy,
+                            process_delta_samples,
                         )
                         self.db_client.write_deltas(
                             timestamp=interval_end,
