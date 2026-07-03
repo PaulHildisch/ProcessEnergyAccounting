@@ -43,12 +43,41 @@ class Plotter:
         )
         self.ax.set_title(title, fontsize=13, pad=6)
     
-    def plot_and_save(self, path="./"):
+    def plot_and_save(self, path="./", name="actual_vs_predicted_interval_energy"):
         self._init_sub_plots()
         self._set_labels_title_legend()
         plt.tight_layout(pad=0.5)
-        plt.savefig(path + "actual_vs_predicted_interval_energy.pdf", bbox_inches="tight")
-        plt.savefig(path + "actual_vs_predicted_interval_energy.png", bbox_inches="tight", dpi=300)
+        plt.savefig(path + name +".pdf", bbox_inches="tight")
+        plt.savefig(path + name + ".png", bbox_inches="tight", dpi=300)
         plt.show()
 
+
+def plot_dataset(t, y, window_start = None, window_end= None):
+    window_start = window_start if window_start is not None else 0
+    window_end = window_end if window_end is not None else len(t)
+    fig, ax = plt.subplots(figsize=(7.2, 3.4))
+    ax.plot(
+            t[window_start : window_end],
+            y[window_start : window_end],
+            label = "Actual Energy",
+            linewidth=2.0
+        )
+    x_label="Time"
+    y_label="Interval Energy (Wh)"
+    title="Actual Interval energy"
+    ax.set_xlabel(x_label, fontsize=12, labelpad=4)
+    ax.set_ylabel(y_label, fontsize=12, labelpad=4)
+    ax.tick_params(axis="both", labelsize=12)
+    ax.legend(
+            loc="upper right",
+            bbox_to_anchor=(0.97, 0.97),
+            fontsize=10.5,
+            frameon=True,
+            framealpha=0.9,
+            handlelength=1.8,
+            labelspacing=0.4,
+        )
+    ax.set_title(title, fontsize=13, pad=6)
+    plt.tight_layout(pad=0.5)
+    plt.show()
 
