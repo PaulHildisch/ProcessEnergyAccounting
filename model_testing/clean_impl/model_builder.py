@@ -6,15 +6,18 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score, mean_absolute_error
 
+from sklearn.linear_model import Ridge
+
 class ModelBuilder():
 
-    def __init__(self, X_train, X_test, y_train, y_test, t_train, t_test):
+    def __init__(self, X_train, X_test, y_train, y_test, model, scaler):
         self.X_train = X_train
         self.X_test = X_test
         self.y_train = y_train
         self.y_test = y_test
-        self.t_train = t_train
-        self.t_test = t_test
+        self.model = model
+        self.scaler = scaler
+
 
 
     def _scale(self):
@@ -22,12 +25,14 @@ class ModelBuilder():
         # self.scaler = None
         # self.X_train_scaled = self.X_train
         # self.X_test_scaled = self.X_test
-        self.scaler = StandardScaler()
+        #self.scaler = StandardScaler()
         self.X_train_scaled = self.scaler.fit_transform(self.X_train)
         self.X_test_scaled = self.scaler.transform(self.X_test)
 
+
     def _train(self):
-        self.model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
+        #self.model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
+        #self.model = Ridge(alpha=1.0)
         self.model.fit(self.X_train_scaled, self.y_train)
     
     def _test(self):
@@ -50,7 +55,7 @@ class ModelBuilder():
         zero_activity_interval = np.zeros((1, len(self.X_test_scaled[0])))
         zero_activity_interval = self.scaler.transform(zero_activity_interval)
         self.learned_idle_power = self.model.predict(zero_activity_interval)[0]
-        print(f"The model's learned baseline idle power is: {self.learned_idle_power:.2f} Wh")   
+        print(f"The model's learned baseline idle interval energy is: {self.learned_idle_power:.2f} Wh")   
 
     def _save_model(self,path, filename):
         filepath = os.path.join(path, filename)
