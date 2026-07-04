@@ -60,6 +60,7 @@ def plot(prediction, actual, range=300, title="L2 Regression - Actual & Predicte
 
 def read_data(path, scaler):
     df = pd.read_parquet(path)
+    df = df.set_index('_time')
     x = df[df.columns[1:]]
     y = df[df.columns[0]]
 
