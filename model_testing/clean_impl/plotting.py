@@ -52,7 +52,7 @@ class Plotter:
         plt.show()
 
 
-def plot_dataset(t, y, window_start = None, window_end= None):
+def plot_dataset(t, y,name, window_start = None, window_end= None):
     window_start = window_start if window_start is not None else 0
     window_end = window_end if window_end is not None else len(t)
     fig, ax = plt.subplots(figsize=(7.2, 3.4))
@@ -79,5 +79,6 @@ def plot_dataset(t, y, window_start = None, window_end= None):
         )
     ax.set_title(title, fontsize=13, pad=6)
     plt.tight_layout(pad=0.5)
+    plt.savefig( name + ".png", bbox_inches="tight", dpi=300)
     plt.show()
 

@@ -2,7 +2,8 @@ from model_builder import ModelBuilder
 from preprocessing import Preprocessor
 from plotting import Plotter
 from plotting import plot_dataset
-from shapley import ProcessAttributor
+#from shapley import ProcessAttributor
+from shapley_improved import ProcessAttributorSHAP
 from universal_filtering import CustomSpearmanFilter
 import pandas as pd
 
@@ -11,42 +12,44 @@ from sklearn.feature_selection import VarianceThreshold, SelectFromModel
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import Ridge
+from sklearn.linear_model import Lasso
+
+from xgboost import XGBRFRegressor
+from interpret.glassbox import ExplainableBoostingRegressor
 
 #This combiantion predicts sarek2 better than just sarek1 alone
 
+short_data = [
+    pd.read_parquet("runs/nfcore-20260630T142308Z/datasets/rnaseq1_shorttest.parquet"),
+    pd.read_parquet("runs/nfcore-20260630T143512Z/datasets/chipseq1_shorttest.parquet"),
+    pd.read_parquet("runs/nfcore-20260630T152039Z/datasets/methlyseq1_shorttest.parquet"),
+    pd.read_parquet("runs/nfcore-20260630T152447Z/datasets/methylseq2_shorttest.parquet"),
+    pd.read_parquet("runs/nfcore-20260630T153034Z/datasets/sarek1_shorttest.parquet"),
+    pd.read_parquet("runs/nfcore-20260630T153034Z/datasets/sarek1_shorttest.parquet"),
+    pd.read_parquet("runs/nfcore-20260630T153801Z/datasets/sarek2_short_test.parquet"),
+
+]
+
 data = [
-    pd.read_parquet("data/siena12/test/rnaseq_siena12.parquet"),
-    pd.read_parquet("data/siena12/test/chip_seq_1.parquet"),
-    pd.read_parquet("data/siena12/test/methylseq_1.parquet"),
-    pd.read_parquet("data/siena12/test/sarek_2.parquet")
+    #pd.read_parquet("runs/stressng-custom-1782744477/datasets/process_interval_data.parquet")
+    #pd.read_parquet("data/siena12/test/rnaseq_siena12.parquet"),
+    #pd.read_parquet("runs/nfcore-20260701T114734Z/datasets/rnaseq_1_02027.parquet"),
+    #pd.read_parquet("runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet"),
+    #pd.read_parquet("runs/nfcore-20260704T110043Z/datasets/chipseq_2_0607.parquet"),
+    #pd.read_parquet("runs/nfcore-20260703T215123Z/datasets/ampliseq_1_0607.parquet"),
+    #pd.read_parquet("runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet"),
+    #pd.read_parquet("runs/nfcore-20260706T112716Z/datasets/ampliseq_3_0707.parquet")
 ]
 
 
 
-data = pd.concat(data, ignore_index=True)
-#data = pd.read_parquet("data\gpu08\gpu08_dataset.parquet")
-#data = pd.read_parquet("data/siena12/rnaseq_1_02027.parquet")
+data = pd.concat(short_data, ignore_index=True)
 
-#data = pd.read_parquet("data/siena12/test/sarek_2.parquet")
-
-#chipseq -> very goog
-#['delta_cpu_ns', 'syscall_class_other', 'delta_io_bytes', 'delta_net_send_bytes']
-
-#methylseq1 -> not so high r² -> maybe wrong export?
-#['delta_net_send_bytes', 'syscall_class_signal', 'context_switches', 'syscall_class_memory', 'syscall_class_sched', 'syscall_class_time']
-#methlyseq2 -> not so high r²
-#good_features =['syscall_class_signal', 'syscall_class_network', 'syscall_class_time']
-
-#sarek1
-#['syscall_class_file', 'delta_io_bytes', 'syscall_class_network', 'context_switches', 'syscall_class_time', 'syscall_class_sched']
-
-#sarek2 -> check export here?
-#good_features =['syscall_class_memory']
 
 #seems to work well for many things
 #good_features =['syscall_class_other', 'syscall_class_signal', 'context_switches', 'syscall_class_process'] \
 #    + ['delta_cpu_ns', 'syscall_class_time', 'delta_rss_memory', 'delta_cycles']
-
+#good_features =  ['delta_cpu_ns', 'syscall_class_other', 'syscall_class_signal', 'syscall_class_file']
 features = [
     "delta_cpu_ns",
     "delta_io_bytes",
@@ -78,12 +81,26 @@ X_train, y_train, t_train = preprocessor_train.preprocess_no_split()
 #Params could be tuned as well
 model = RandomForestRegressor(n_estimators=100,  n_jobs=-1, random_state=42)
 #model = Ridge(alpha=1.0)
+#model = Lasso(alpha=0.1)
 
-#These thresholds could be fine tuned
+#The constraints do not change the result, then why is the xgbrf slighty worse?
+#Apparently these constraints dont even give us the necessary guarantees
+# constraints = (1, 1, 0)
+# build_model = XGBRFRegressor(
+#     n_estimators=100,
+#     monotonic_constraints=constraints,
+#     random_state=42,
+#     max_depth=0, # 0 means no limit in XGBoost (matches sklearn)
+#     #tree_method='exact',
+# )
+
+#build_model = ExplainableBoostingRegressor( interactions=2, max_rounds=2000, n_jobs=-1, random_state=42)
+
+# These thresholds could be fine tuned
 automatic_feature_selection = Pipeline(steps=[
     ('variance', VarianceThreshold(threshold=0.01)),
 
-    ('decorrelate', CustomSpearmanFilter(threshold=0.90)),
+    ('decorrelate', CustomSpearmanFilter(threshold=0.80)),
  
     ('select_features', SelectFromModel(model, threshold='0.5*median'))
 ])
@@ -94,16 +111,22 @@ good_features = X_train.columns.tolist()
 print("Selected columns:")
 print(good_features)
 
-plot_dataset(t_train, y_train)
+plot_dataset(t_train, y_train, "multi_training")
 
 
 #test_data = pd.read_parquet("data/siena12/sarek_1.parquet")
 #test_data  = pd.read_parquet("data/siena12/sarek_2_0207.parquet")
-test_data = pd.read_parquet("data/siena12/test/sarek_1.parquet")
+#test_data = pd.read_parquet("runs/nfcore-20260702T193504Z/datasets/sarek_2_0207.parquet")
+#test_data = pd.read_parquet("runs/nfcore-20260704T110043Z/datasets/chipseq_2_0607.parquet")
+#test_data = pd.read_parquet("runs/nfcore-20260702T072031Z/datasets/chip_seq_0207.parquet")
+#test_data = pd.read_parquet("runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet")
+test_data = pd.read_parquet("ampliseeq_clipped_outlier.parquet")
+
+#test_data = pd.read_parquet("runs/stressng-custom-1782744477/datasets/process_interval_data.parquet")
 preprocessor_test = Preprocessor(test_data, good_features)
 X_test, y_test, t_test = preprocessor_test.preprocess_no_split()
 
-plot_dataset(t_test, y_test)
+plot_dataset(t_test, y_test, "multi_testing")
 
 
 #idle_power_isactually idle interval energy
@@ -115,11 +138,13 @@ plotter = Plotter(y_pred,y_test, t_test)#, window_start =50, window_end=200)
 plotter.plot_and_save("", "multi__pred")
 
 
-# df_original_test = preprocessor_test.df[preprocessor_test.df["_time"].isin(t_test)].copy()
-# df_original_test = df_original_test.set_index("_time")
-# attributor = ProcessAttributor(builder.model, X_test, learned_idle_power)
+df_original_test = preprocessor_test.df[preprocessor_test.df["_time"].isin(t_test)].copy()
+df_original_test = df_original_test.set_index("_time")
+
+#check if we ann pass this differently
+attributor = ProcessAttributorSHAP( builder.X_test_scaled, builder.model, builder.scaler)
 # #pretty sure this df_original is wrong 
-# attributor.attribute(y_pred,df_original_test,good_features,t_test.values)
+attributor.attribute(df_original_test,good_features,t_test.values)
 
 
 

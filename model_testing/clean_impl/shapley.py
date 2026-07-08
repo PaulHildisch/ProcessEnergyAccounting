@@ -15,7 +15,7 @@ class ProcessAttributor:
     def _init_explainer(self):
         self.explainer = shap.TreeExplainer(self.model)
         #should this be X_train?
-        shap_values = self.explainer.shap_values(self.X_test)
+        #shap_values = self.explainer.shap_values(self.X_test)
         #This should be idle power
         #base_power = self.explainer.expected_value[0] if isinstance(self.explainer.expected_value, (list, np.ndarray)) else self.explainer.expected_value
         #print("Wh", base_power)
@@ -24,8 +24,14 @@ class ProcessAttributor:
         self._init_explainer()
 
     def attribute(self,preds, X, good_features, t_test):
+        print("init shap")
         self._init_explainer()
+
+        #Maybe try attribution only for smaller chunks if this is a problem
+        # and also attribute less values 
+        print("start attribution")
         df = self.attribute_entire_dataset(preds, self.explainer, X, good_features, t_test, self.idle_power)
+        print("attribution done")
         # top_consumers = df.groupby('process_name')['attributed_dynamic_Wh'].sum().sort_values(ascending=False)
         # print(top_consumers.head(20))
         # print("influx meand")

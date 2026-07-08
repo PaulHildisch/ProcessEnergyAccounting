@@ -3,12 +3,13 @@ import pandas as pd
 
 #file_path = "data/nfcore/process_interval_data_1tag.parquet"
 #file_path = "data/gpu08/gpu08_dataset.parquet"
-file_path = "data/siena/siena06_dataset.parquet"
+# file_path = "runs/nfcore-20260702T193504Z/datasets/sarek_2_0207.parquet"
+file_path =  "runs/nfcore-20260706T112716Z/datasets/ampliseq_3_0707.parquet"
 
-start_offset = 0
+start_offset = 5
 end_offset = 180
 #name = "data/gpu08_short_"+str(start_offset)+"_"+str(end_offset)+"_.parquet"
-name = "data/siena/siena06_short_"+str(start_offset)+"_"+str(end_offset)+"_.parquet"
+name = "sarek2_short_"+str(start_offset)+"_"+str(end_offset)+"_.parquet"
 # 1. Peek at the file to find the very first timestamp (without loading the file!)
 min_time = pl.scan_parquet(file_path).select(pl.col("_time").min()).collect().item()
 print(f"Dataset starts at: {min_time}")
