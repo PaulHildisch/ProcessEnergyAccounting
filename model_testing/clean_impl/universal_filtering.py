@@ -12,6 +12,11 @@ class CustomSpearmanFilter(BaseEstimator, TransformerMixin):
         self.to_drop_cols_ = [] 
     
     def fit(self, X, y=None):
+        #important for the optuna optimiuzation
+        if not isinstance(X, pd.DataFrame):
+            X = pd.DataFrame(X)
+        
+
         corr_matrix = X.corr(method='spearman').abs()
         mask = np.triu(np.ones(corr_matrix.shape), k=1).astype(bool)
         upper_triangle_matrix = corr_matrix.where(mask)

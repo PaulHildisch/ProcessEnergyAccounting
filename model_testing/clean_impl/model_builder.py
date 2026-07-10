@@ -26,8 +26,8 @@ class ModelBuilder():
         # self.X_train_scaled = self.X_train
         # self.X_test_scaled = self.X_test
         #self.scaler = StandardScaler()
-        self.X_train_scaled = self.scaler.fit_transform(self.X_train)
-        self.X_test_scaled = self.scaler.transform(self.X_test)
+        self.X_train_scaled = self.scaler.fit_transform(self.X_train.values)
+        self.X_test_scaled = self.scaler.transform(self.X_test.values)
 
 
     def _train(self):
@@ -44,7 +44,7 @@ class ModelBuilder():
         mean_energy = self.y_test.mean()
         mae_pct = (mae / mean_energy) * 100
         
-        print(f" Random Forest")
+        #print(f" Random Forest")
         print(f"  R² Score:  {r2:.4f}")
         print(f"  MAE:       {mae:.2f} Wh ({mae_pct:.2f}% of mean)")
         print("-" * 34)
@@ -55,7 +55,9 @@ class ModelBuilder():
         zero_activity_interval = np.zeros((1, len(self.X_test_scaled[0])))
         zero_activity_interval = self.scaler.transform(zero_activity_interval)
         self.learned_idle_power = self.model.predict(zero_activity_interval)[0]
-        print(f"The model's learned baseline idle interval energy is: {self.learned_idle_power:.2f} Wh")   
+        print(f"The model's learned baseline idle interval energy is: {self.learned_idle_power:.2f} Wh")
+        print("-" * 34)
+        print("/n")
 
     def _save_model(self,path, filename):
         filepath = os.path.join(path, filename)
@@ -81,7 +83,8 @@ class ModelBuilder():
         self._test()
         self._evaluate()
         self._idle_power()
-        self._save_model(path, model_name)
+        #Dont svae rn
+        #self._save_model(path, model_name)
         return self.y_pred, self.learned_idle_power
 
     

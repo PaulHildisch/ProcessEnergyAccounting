@@ -19,41 +19,114 @@ from sklearn.linear_model import Lasso
 # from xgboost import XGBRFRegressor
 # from interpret.glassbox import ExplainableBoostingRegressor
 
-short_data = [
-    # pd.read_parquet("runs/nfcore-20260630T142308Z/datasets/rnaseq1_shorttest.parquet"),
-    # pd.read_parquet("runs/nfcore-20260630T143512Z/datasets/chipseq1_shorttest.parquet"),
-    # pd.read_parquet("runs/nfcore-20260630T152039Z/datasets/methlyseq1_shorttest.parquet"),
-    # pd.read_parquet("runs/nfcore-20260630T152447Z/datasets/methylseq2_shorttest.parquet"),
-    #pd.read_parquet("runs/nfcore-20260630T153034Z/datasets/sarek1_shorttest.parquet"),
-    # pd.read_parquet("runs/nfcore-20260630T153034Z/datasets/sarek1_shorttest.parquet"),
-    # pd.read_parquet("runs/nfcore-20260630T153801Z/datasets/sarek2_short_test.parquet"),
-    #pd.read_parquet("data/siena12/stressng_siena12.parquet")
-    
-    #LOCAL Test profiles
-    # pd.read_parquet("data/siena12/test/sarek_1.parquet"),
-    # pd.read_parquet("data/siena12/test/rnaseq_siena12.parquet"),
-    # pd.read_parquet("data/siena12/test/chip_seq_1.parquet")
+# Dropped 1 timestamps.
+#  Random Forest
+#   R² Score:  0.9182
+#   MAE:       4.04 Wh (2.12% of mean)
+#['delta_cpu_ns', 'delta_io_bytes', 'delta_net_send_bytes', 'context_switches', 'syscall_count', 'syscall_class_network', 'syscall_class_memory', 'syscall_class_sched']
+# train_ampliseq = [
+#         pd.read_parquet("runs/nfcore-20260703T215123Z/datasets/ampliseq_1_0607.parquet"),
+#         pd.read_parquet("runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet"),
+#         pd.read_parquet("runs/nfcore-20260708T125031Z/datasets/ampliseq_triple_run.parquet")
 
-]
+# ]
 
-data = [
-    pd.read_parquet("data/siena12/full_test/ampliseq_1_0607.parquet"),
-    # pd.read_parquet("data/siena12/full_test/ampliseq_2_0607.parquet"),
-    #pd.read_parquet("data/siena12/full_test/ampliseq_3_0707.parquet")
-    #pd.read_parquet("runs/stressng-custom-1782744477/datasets/process_interval_data.parquet")
-    #pd.read_parquet("data/siena12/test/rnaseq_siena12.parquet"),
-    #pd.read_parquet("runs/nfcore-20260701T114734Z/datasets/rnaseq_1_02027.parquet"),
-    #pd.read_parquet("runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet"),
-    #pd.read_parquet("runs/nfcore-20260704T110043Z/datasets/chipseq_2_0607.parquet"),
-    #pd.read_parquet("runs/nfcore-20260703T215123Z/datasets/ampliseq_1_0607.parquet"),
-    #pd.read_parquet("runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet"),
-    #pd.read_parquet("runs/nfcore-20260706T112716Z/datasets/ampliseq_3_0707.parquet")
-   # pd.read_parquet("data/siena12/full_test/ampliseq_triple_run.parquet")
-]
+# test_ampliseq = pd.read_parquet("runs/nfcore-20260706T112716Z/datasets/ampliseq_3_0707.parquet")
 
 
 
-data = pd.concat(data, ignore_index=True)
+# Remove Outliers
+# Dropped 0 timestamps.
+# Random Forest
+# R² Score:  0.9292
+# MAE:       5.17 Wh (2.57% of mean)
+
+#['delta_cpu_ns', 'delta_io_bytes', 'delta_net_send_bytes', 'context_switches', 'syscall_count', 'delta_rss_memory', 'delta_cpu_time_proc', 'syscall_class_file', 'syscall_class_network', 'syscall_class_memory', 'syscall_class_process', 'syscall_class_other']
+# train_sarek = [
+#     pd.read_parquet("runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet"),
+#     pd.read_parquet("runs/nfcore-20260702T193504Z/datasets/sarek_2_0207.parquet")
+
+# ]
+
+# test_sarek = pd.read_parquet("runs/nfcore-20260708T212252Z/datasets/sarek3_0907.parquet")
+
+#---------------------------------
+
+# Remove Outliers
+# Dropped 0 timestamps.
+#  Random Forest
+#   R² Score:  0.0373
+#   MAE:       16.27 Wh (8.53% of mean)
+#['delta_cpu_ns', 'delta_io_bytes', 'delta_net_send_bytes', 'context_switches', 'syscall_count', 'delta_rss_memory', 'delta_cpu_time_proc', 'syscall_class_file', 'syscall_class_network', 'syscall_class_memory', 'syscall_class_process', 'syscall_class_other', 'syscall_class_sched']
+#Predicting sarek as unseen type
+# Remove Outliers
+# Dropped 0 timestamps.
+# Random Forest
+# R² Score:  0.8262
+# MAE:       8.16 Wh (4.08% of mean)
+#['delta_cpu_ns', 'delta_io_bytes', 'delta_net_send_bytes', 'context_switches', 'syscall_count', 'delta_rss_memory', 'delta_cpu_time_proc', 'syscall_class_file', 'syscall_class_network', 'syscall_class_memory', 'syscall_class_process', 'syscall_class_other']
+
+# train_mixed_unseen_type = [
+#     pd.read_parquet("runs/nfcore-20260704T110043Z/datasets/chipseq_2_0607.parquet"),
+#     pd.read_parquet("runs/nfcore-20260701T114734Z/datasets/rnaseq_1_02027.parquet"),
+#     #pd.read_parquet("runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet"),
+#     pd.read_parquet("runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet")
+
+# ]
+#test_mixed_unseen_type = pd.read_parquet("runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet")
+#test_mixed_unseen_type2 = pd.read_parquet("runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet")
+
+
+#Maybe bad example -> should be split 80/20
+# build mode that lets you test both?
+#['delta_cpu_ns', 'delta_io_bytes', 'delta_net_send_bytes', 'context_switches', 'syscall_count', 'delta_rss_memory', 'syscall_class_process', 'syscall_class_signal']
+# Remove Outliers
+# Dropped 0 timestamps.
+#  Random Forest
+#   R² Score:  0.8606
+#   MAE:       12.80 Wh (6.72% of mean)
+test_stressng = pd.read_parquet("stressng_test3_10_.parquet")
+train_stressng = pd.read_parquet("stressng_train0_3_.parquet")
+
+
+
+
+
+# test_long_on_short_training = pd.read_parquet("runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet")
+# short_training = [
+#     pd.read_parquet("runs/nfcore-20260630T142308Z/datasets/rnaseq1_shorttest.parquet"),
+#     pd.read_parquet("runs/nfcore-20260630T143512Z/datasets/chipseq1_shorttest.parquet"),
+#     pd.read_parquet("runs/nfcore-20260630T152039Z/datasets/methlyseq1_shorttest.parquet"),
+#     # pd.read_parquet("runs/nfcore-20260630T152447Z/datasets/methylseq2_shorttest.parquet"),
+#     pd.read_parquet("runs/nfcore-20260630T153034Z/datasets/sarek1_shorttest.parquet")
+#     # pd.read_parquet("runs/nfcore-20260630T153034Z/datasets/sarek1_shorttest.parquet"),
+#     # pd.read_parquet("runs/nfcore-20260630T153801Z/datasets/sarek2_short_test.parquet"),
+#     #pd.read_parquet("data/siena12/stressng_siena12.parquet")]
+
+# data = [
+#     #pd.read_parquet("data/siena12/full_test/ampliseq_1_0607.parquet"),
+#     # pd.read_parquet("data/siena12/full_test/ampliseq_2_0607.parquet"),
+#     #pd.read_parquet("data/siena12/full_test/ampliseq_3_0707.parquet")
+#     #pd.read_parquet("runs/stressng-custom-1782744477/datasets/process_interval_data.parquet")
+#     #pd.read_parquet("data/siena12/test/rnaseq_siena12.parquet"),
+#     #pd.read_parquet("runs/nfcore-20260701T114734Z/datasets/rnaseq_1_02027.parquet"),
+#     #pd.read_parquet("runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet"),
+#     #pd.read_parquet("runs/nfcore-20260702T193504Z/datasets/sarek_2_0207.parquet"),
+#     #pd.read_parquet("runs/nfcore-20260702T072031Z/datasets/chipseq1_0207.parquet"),
+#     #pd.read_parquet("runs/nfcore-20260704T110043Z/datasets/chipseq_2_0607.parquet"),
+#     #pd.read_parquet("runs/nfcore-20260704T110043Z/datasets/chipseq_2_0607.parquet"),
+#     pd.read_parquet("runs/nfcore-20260703T215123Z/datasets/ampliseq_1_0607.parquet"),
+#     pd.read_parquet("runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet"),
+#     #pd.read_parquet("runs/nfcore-20260706T112716Z/datasets/ampliseq_3_0707.parquet"),
+#     pd.read_parquet("runs/nfcore-20260708T125031Z/datasets/ampliseq_triple_run.parquet")
+# ]
+
+
+
+#training_data = pd.concat(train_stressng, ignore_index=True)
+training_data = train_stressng
+test_data = test_stressng
+PNG_NAME = "stressng"
 
 features = [
     "delta_cpu_ns",
@@ -80,30 +153,19 @@ features = [
 
 
 
-preprocessor_train = Preprocessor(data, features)
+preprocessor_train = Preprocessor(training_data, features)
 X_train, y_train, t_train, _ = preprocessor_train.preprocess_no_split()
 
 #Params could be tuned as well
 model = RandomForestRegressor(n_estimators=100,  n_jobs=-1, random_state=42)
 #model = Ridge(alpha=1.0)
 #model = Lasso(alpha=0.1)
-
-#The constraints do not change the result, then why is the xgbrf slighty worse?
-#Apparently these constraints dont even give us the necessary guarantees
-# constraints = (1, 1, 0)
-# build_model = XGBRFRegressor(
-#     n_estimators=100,
-#     monotonic_constraints=constraints,
-#     random_state=42,
-#     max_depth=0, # 0 means no limit in XGBoost (matches sklearn)
-#     #tree_method='exact',
-# )
-
 #build_model = ExplainableBoostingRegressor( interactions=2, max_rounds=2000, n_jobs=-1, random_state=42)
-#-------------------------------------------------------------------------------------------------------------
+
 
 
 #These thresholds could be fine tuned
+# Don't forget scaling the linear stuff before using selec_features
 automatic_feature_selection = Pipeline(steps=[
     ('variance', VarianceThreshold(threshold=0.01)), #explain this
 
@@ -130,7 +192,12 @@ plot_dataset(t_train, y_train, "multi_training")
 #test_data = pd.read_parquet("data/siena12/stressng_siena12.parquet")
 #test_data = pd.read_parquet("data/siena12/test/sarek_2.parquet")
 #test_data = pd.read_parquet("runs/stressng-custom-1782744477/datasets/process_interval_data.parquet")
-test_data = pd.read_parquet("data/siena12/full_test/ampliseq_3_0707.parquet")
+#test_data = pd.read_parquet("data/siena12/full_test/ampliseq_3_0707.parquet")
+#test_data = pd.read_parquet("runs/nfcore-20260706T112716Z/datasets/ampliseq_3_0707.parquet")
+#test_data = pd.read_parquet("runs/nfcore-20260708T125031Z/datasets/ampliseq_triple_run.parquet")
+#test_data = pd.read_parquet("runs/nfcore-20260708T212252Z/datasets/sarek3_0907.parquet")
+#test_data = pd.read_parquet("runs/nfcore-20260704T110043Z/datasets/chipseq_2_0607.parquet")
+#test_data = pd.read_parquet("runs/nfcore-20260702T072031Z/datasets/chipseq1_0207.parquet")
 
 preprocessor_test = Preprocessor(test_data, good_features)
 X_test, y_test, t_test , X_test_unaggregated = preprocessor_test.preprocess_no_split()
@@ -144,7 +211,7 @@ y_pred, learned_idle_power = builder.run_and_save_model(".")
 
 
 plotter = Plotter(y_pred,y_test, t_test)#, window_start =50, window_end=200)
-plotter.plot_and_save("", "multi__pred_lasso")
+plotter.plot_and_save("", PNG_NAME)
 
 
 

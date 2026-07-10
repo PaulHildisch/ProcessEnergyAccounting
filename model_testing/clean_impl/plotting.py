@@ -49,7 +49,8 @@ class Plotter:
         plt.tight_layout(pad=0.5)
         plt.savefig(path + name +".pdf", bbox_inches="tight")
         plt.savefig(path + name + ".png", bbox_inches="tight", dpi=300)
-        plt.show()
+        #plt.show()
+        plt.close(self.fig)
 
 
 def plot_dataset(t, y,name, window_start = None, window_end= None):
@@ -80,5 +81,6 @@ def plot_dataset(t, y,name, window_start = None, window_end= None):
     ax.set_title(title, fontsize=13, pad=6)
     plt.tight_layout(pad=0.5)
     plt.savefig( name + ".png", bbox_inches="tight", dpi=300)
-    plt.show()
+    #plt.show()
+    plt.close(fig)
 

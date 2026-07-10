@@ -24,7 +24,7 @@ class HandlerMultiColor(HandlerBase):
 
 
 class AttributionPlotter:
-    def __init__(self, df, time_col="_time", energy_col="attributed_dynamic_Wh"):
+    def __init__(self, df, time_col="_time", energy_col="attributed_dynamic_Ws"):
         """
         Initializes the plotter with the dataframe output from the SHAP attributor.
         """

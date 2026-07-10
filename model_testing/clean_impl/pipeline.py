@@ -7,6 +7,8 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import Lasso
+from sklearn import linear_model
+
 #TODO idle prediction is heavily dependent of features
 
 #data  = pd.read_parquet("data/single_benchmarks/benchmark_primesieve.parquet")
