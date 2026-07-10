@@ -28,7 +28,7 @@ class Plotter:
             linewidth=2.0,
         )
 
-    def _set_labels_title_legend(self, x_label="Time", y_label="Interval Energy (Wh)", title="Actual vs. Predicted Interval energy"):
+    def _set_labels_title_legend(self, x_label="Time", y_label="Interval Energy (Ws)", title="Actual vs. Predicted Interval energy"):
         self.ax.set_xlabel(x_label, fontsize=12, labelpad=4)
         self.ax.set_ylabel(y_label, fontsize=12, labelpad=4)
         self.ax.tick_params(axis="both", labelsize=12)
@@ -63,7 +63,7 @@ def plot_dataset(t, y,name, window_start = None, window_end= None):
             linewidth=2.0
         )
     x_label="Time"
-    y_label="Interval Energy (Wh)"
+    y_label="Interval Energy (Ws)"
     title="Actual Interval energy"
     ax.set_xlabel(x_label, fontsize=12, labelpad=4)
     ax.set_ylabel(y_label, fontsize=12, labelpad=4)
