@@ -8,7 +8,8 @@ from sklearn.preprocessing import StandardScaler
 from matplotlib import pyplot as plt
 from matplotlib import dates as dates
 from sklearn.metrics import r2_score, mean_absolute_error
-
+import progressbar
+import warnings
 
 def evaluate_model(prediction, actual):
     r2 = r2_score(actual, prediction)
@@ -16,7 +17,7 @@ def evaluate_model(prediction, actual):
 
     print("-" * 34)
     print(f"  R² Score:  {r2:.4f}")
-    print(f"  MAE:       {mae:.2f} Wh ({100 * mae / actual.mean():.2f}%)")
+    print(f"  MAE:       {mae:.2f} Wh ({100 * mae / actual.mean().interval_energy:.2f}%)")
     print("-" * 34)
 
     return r2, mae
@@ -66,31 +67,49 @@ def plot(prediction, actual, range = None, title="L2 Regression - Actual & Predi
     plt.savefig(f"plots/actual_vs_predicted_interval_energy-{time.strftime("%m%d%H%M%S")}.png", bbox_inches="tight", dpi=300)
     plt.close()
 
-def read_data(path, scaler):
-    df = pd.read_parquet(path)
-    df = df.set_index('_time')
-    x = df[df.columns[1:]]
-    y = df[df.columns[0]]
+def predictions(data, model, zero_prediction, actual):
+    print("making predictions")
+    preds = pd.DataFrame(0, index=actual.index, columns=actual.columns) 
+    for timestamp, interval_df in data.groupby(level=0):
+        interval_df = interval_df.droplevel(0)
+        interval_pred = 0
+        for pid, pid_df in interval_df.groupby(level=0):
+            prediction = model.predict(pid_df)
+            interval_pred += prediction - zero_prediction
+        #print(f"{timestamp} - Interval Prediction: {interval_pred}\n{timestamp} - Interval + Zero: {zero_prediction +  interval_pred}\n{timestamp} - Recorded Value: {actual.loc[timestamp, "interval_energy"]}")
+        interval_pred += zero_prediction
+        preds.loc[timestamp] = interval_pred
+    return preds
 
+def read_data(measurementsPath, targetsPath, scaler):
+    x = pd.read_parquet(measurementsPath)
+    y = pd.read_parquet(targetsPath)
+    print(y.mean().interval_energy)
+
+    print("Scaling data")
     if scaler:
-        x = scaler.transform(x)
+        for timestamp, interval_df in x.groupby(level=0):
+            interval_df = interval_df.droplevel(0)
+            transformed = scaler.transform(interval_df)
+            transformed_df = pd.DataFrame(data=transformed,
+                                           index=interval_df.index,
+                                           columns=interval_df.columns)
+            x.loc[timestamp].update(transformed_df)
     else: 
         scaler = StandardScaler()
         x = scaler.fit_transform(x)
     return x,y
 
 def main(args):
-    model = joblib.load(args.modelFile)
+    modelFile = joblib.load(args.modelFile)
+    model = modelFile["model"]
+    scaler = modelFile["scaler"]
 
-    if args.scalerFile:
-        with open(args.scalerFile, "r+b") as scaler_in:
-            scaler = pickle.loads(scaler_in.read())
-    else:
-        scaler = None
+    zero_df = pd.DataFrame(scaler.transform(np.array([0,0,0,0,0,0,0,0,0,0,0,0]).reshape(1,-1)))
+    zero_prediction = model.predict(zero_df)
+    data, actual = read_data(args.pidDataSource, args.targetDataSource, scaler)
 
-    data, actual = read_data(args.dataSource, scaler)
-
-    prediction = model.predict(data)
+    prediction = predictions(data, model, zero_prediction, actual)
     evaluate_model(prediction, actual)
     
     if args.full:
@@ -103,9 +122,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--modelFile")
-    parser.add_argument("--dataSource", default="data/nf_core_test-full_0530-4-cleaned.parquet")
-    parser.add_argument("--scalerFile", default=None)
+    parser.add_argument("--targetDataSource", default="data/sarek_2_0207-cleaned-targets.parquet")
+    parser.add_argument("--pidDataSource", default="data/sarek_2_0207-cleaned-pid.parquet")
     parser.add_argument("--full", action="store_true", default=False)
 
     args = parser.parse_args()
+    warnings.filterwarnings("ignore")
     main(args)
