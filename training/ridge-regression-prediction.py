@@ -21,19 +21,27 @@ def evaluate_model(prediction, actual):
 
     return r2, mae
 
-def plot(prediction, actual, range=300, title="L2 Regression - Actual & Predicted Energy Consumption"):
+def plot(prediction, actual, range = None, title="L2 Regression - Actual & Predicted Energy Consumption"):
     time_frame_np = np.arange(actual.index.values[0], actual.index.values[-1], 1, dtype='datetime64[s]')
+    print(time_frame_np.size)
+    print(actual.size)
+    print(prediction.size)
 
-    start = int(time_frame_np.size / 2 - range / 2)
-    end = int(time_frame_np.size / 2 + range / 2)
+    if range == None:
+        start = 0
+        end = -1
+    else: 
+        start = int(time_frame_np.size / 2 - range / 2)
+        end = int(time_frame_np.size / 2 + range / 2)
 
     _ , ax = plt.subplots(figsize=(10, 5))
     
-    ax.plot(
+    ax.scatter(
         time_frame_np[start:end],
         actual[start:end],
         label="Actual Energy",
-        linewidth=1.0,
+        s=0.2,
+        c='g'
     )
     ax.plot(
         time_frame_np[start:end],
@@ -44,7 +52,7 @@ def plot(prediction, actual, range=300, title="L2 Regression - Actual & Predicte
     )
 
     ax.set_xlabel("Time", fontsize=10, labelpad=4)
-    ax.xaxis.set_major_locator(dates.SecondLocator(interval=30))
+    ax.xaxis.set_major_locator(dates.SecondLocator(interval=int(range/10)))
     ax.xaxis.set_major_formatter(dates.DateFormatter('%H:%M:%S'))
     ax.set_ylabel("Interval Energy (Wh)", fontsize=12, labelpad=4)
     ax.tick_params(axis="both", labelsize=10)
@@ -85,8 +93,11 @@ def main(args):
     prediction = model.predict(data)
     evaluate_model(prediction, actual)
     
-    plot(prediction, actual, range=120)
-    
+    if args.full:
+        plot(prediction, actual)
+    else:
+        plot(prediction, actual, range=600)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -94,6 +105,7 @@ if __name__ == "__main__":
     parser.add_argument("--modelFile")
     parser.add_argument("--dataSource", default="data/nf_core_test-full_0530-4-cleaned.parquet")
     parser.add_argument("--scalerFile", default=None)
+    parser.add_argument("--full", action="store_true", default=False)
 
     args = parser.parse_args()
     main(args)

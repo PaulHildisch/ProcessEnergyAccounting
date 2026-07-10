@@ -40,10 +40,6 @@ def evaluate_model(model, training_data):
 def main(args):
     print(f"opening {args.dataSource}")
     data_stream = parquet.ParquetFile(args.dataSource)
-    total_rows = data_stream.metadata.num_rows
-    train_rows = int(total_rows * 0.8)
-    seen_rows = 0
-    test_rows = total_rows - train_rows
 
     # TODO: This potentially results in one more batch than intended via the iterations parameter
     batch_size = int(data_stream.metadata.num_rows / args.iterations)
@@ -59,15 +55,19 @@ def main(args):
 
     print("Preparing Dataset...")
     scaler = StandardScaler()
-    for batch in progressbar.progressbar(data_it, max_value=args.iterations, prefix="Fitting scaler: "):
-        if seen_rows > train_rows:
-            break
+    bar = progressbar.ProgressBar(max_value=args.iterations, widgets=[progressbar.Percentage(), ' ', progressbar.Bar('#'), ' ', progressbar.Timer()], redirect_stdout=True)
+
+    for batch in data_it:
         df = batch.to_pandas().set_index('_time')
         x = df[df.columns[1:]]
         scaler = scaler.partial_fit(x)
-        seen_rows += batch.num_rows
+        bar.update(min(bar.value+1, bar.max_value))
+        if(bar.percentage == 100):
+            break
+    bar.finish('\n')
 
     print("Saving scaler used for model...")
+    timestamp = time.strftime("%m%d%H%M%S")
     with open(f"models/l2-regression-{timestamp}-scaler.npy", "w+b") as scaler_out:
         scaler_out.write(pickle.dumps(scaler))
         print(f"Saved scaler to {scaler_out.name}")
@@ -78,36 +78,14 @@ def main(args):
 
     print(f"Training model with features {selected_features}")
     for batch in data_it:
-        if seen_rows >  train_rows:
-            break
         df = batch.to_pandas().set_index('_time')
         data_set = prepare_dataset(df, scaler)
-        sgd_model.partial_fit(data_set["x"], data_set["y"])
+        sgd_model = sgd_model.partial_fit(data_set["x"], data_set["y"])
         seen_rows += batch.num_rows
 
     print("Saving Model...")
-    timestamp = time.strftime("%m%d%H%M%S")
-    outpath = joblib.dump(sgd_model, f"models/l2-regression-{timestamp}", compress=3)
+    outpath = joblib.dump(sgd_model, f"models/l2-regression-{timestamp}.joblib", compress=3)
     print(f"Model saved to {outpath}")
-
-
-    print("Evaluating Model...")
-    # TODO: Find a way to evaluate performance over many iterations
-    # predictions = pd.DataFrame()
-    # for batch in data_it:
-    #     df = batch.to_pandas().set_index('_time')
-    #     data_set = prepare_dataset(df, scaler)
-    #     prediction = sgd_model.predict(data_set["x"])
-    #     predictions.concat([predictions, prediction], axis=1)
-    
-    # r2 = r2_score(training_data["y"], prediction)
-    # mae = mean_absolute_error(training_data["y"], prediction) 
-    # mae_percent = 100 * mae / data_set["y"].mean()
-
-    # print("-" * 34)
-    # print(f"  R² Score:  {r2:.4f}")
-    # print(f"  MAE:       {mae:.2f} Wh ({mae_percent:.2f}%)")
-    # print("-" * 34)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

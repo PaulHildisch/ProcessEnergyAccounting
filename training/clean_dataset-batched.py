@@ -17,7 +17,9 @@ def main(args):
 
     rows_per_batch = 1024
     total_iterations = int(inFile.metadata.num_rows / rows_per_batch)
-    inFile_it = inFile.iter_batches(batch_size=rows_per_batch)
+    training_batches = int(total_iterations * 0.8)
+    testing_batches = total_iterations - training_batches
+    inFile_generator = inFile.iter_batches(batch_size=rows_per_batch)
     
     # To make this dynamic we have to save the features used to train the model and read them here.
     # features = ["delta_cpu_ns", "delta_cycles", "delta_instructions", "delta_cache_misses", "delta_branch_instructions", "delta_io_bytes", "delta_net_send_bytes", "context_switches", "syscall_count", "delta_rss_memory", "syscall_class_file", "syscall_class_network", "syscall_class_memory", "syscall_class_process", "syscall_class_other", "syscall_class_sched", "syscall_class_signal", "syscall_class_time",]
@@ -31,16 +33,81 @@ def main(args):
             continue
         out_schema = out_schema.append(in_schema.field(feature))
         
-    with parquet.ParquetWriter(f'{filename}-batch-cleaned.parquet', schema=out_schema) as writer:
-        bar = progressbar.ProgressBar(max_value=total_iterations, widgets=[progressbar.Percentage(), ' ', progressbar.Bar('#'), ' ', progressbar.Timer()], redirect_stdout=True)
-        for batch in inFile_it:
+    print("Writing training data...")
+    with parquet.ParquetWriter(f'{filename}-training-cleaned.parquet', schema=out_schema) as writer:
+        bar = progressbar.ProgressBar(max_value=training_batches, widgets=[progressbar.Percentage(), ' ', progressbar.Bar('#'), ' ', progressbar.Timer()], redirect_stdout=True)
+        
+        old_batch = next(inFile_generator)
+        df = pd.DataFrame(old_batch.to_pandas())
+        df["_time"] = pd.to_datetime(df["_time"]).dt.round("1ms")
+        df[features] = df[features].fillna(0)
+        
+        for batch in inFile_generator:
+            processed_batches = 1
+            # Convoluted way to aggregate only once for each second because depending on the batch size we might have multiple batches for the same timeframe resulting in multiple aggregations for the same second
+            df_new = pd.DataFrame(batch.to_pandas())
+            df_new["_time"] = pd.to_datetime(df_new["_time"]).dt.round("1ms")
+            df_new[features] = df_new[features].fillna(0)
+            
+            while df["_time"].values[-1] == df_new["_time"].values[-1]:
+                df = pd.concat([df, df_new])
+                batch = next(inFile_generator)
+                df_new = pd.DataFrame(batch.to_pandas())
+                df_new["_time"] = pd.to_datetime(df_new["_time"]).dt.round("1ms")
+                df_new[features] = df_new[features].fillna(0)
+                processed_batches += 1
+            
+            df = pd.concat([df, df_new.loc[df['_time'] == df['_time'].values[-1]]])
+            df_new = df_new.loc[df_new['_time'] != df['_time'].values[-1]]
 
-            df = pd.DataFrame(batch.to_pandas())
-            #print(df.shape)
+            interval_energy_all = (
+                df[["_time", "interval_energy"]]
+                .dropna()
+                .drop_duplicates("_time")
+                .set_index("_time")["interval_energy"]
+            )
+            df = df[df["_time"].isin(interval_energy_all.index)]
 
-            df["_time"] = pd.to_datetime(df["_time"]).dt.round("1ms")
+            interval_energy_all = interval_energy_all.sort_index()
 
-            df[features] = df[features].fillna(0)
+            #aggregation
+            df_agg = df.groupby("_time")[features].sum()
+
+            out = pd.concat([interval_energy_all, df_agg], axis=1)
+
+            batch_out = RecordBatch.from_pandas(out, schema=out_schema, preserve_index=True)
+            writer.write_batch(batch_out)
+            
+            df = df_new
+            bar.update(min(bar.value + processed_batches, bar.max_value))
+            if(bar.percentage == 100):
+                break
+        bar.finish('\n')
+
+    print("Writing testing data...")
+    with parquet.ParquetWriter(f'{filename}-testing-cleaned.parquet', schema=out_schema) as writer:
+        bar = progressbar.ProgressBar(max_value=testing_batches, widgets=[progressbar.Percentage(), ' ', progressbar.Bar('#'), ' ', progressbar.Timer()], redirect_stdout=True)
+        for batch in inFile_generator:
+            processed_batches = 1
+            # Convoluted way to aggregate only once for each second because depending on the batch size we might have multiple batches for the same timeframe resulting in multiple aggregations for the same second
+            df_new = pd.DataFrame(batch.to_pandas())
+            df_new["_time"] = pd.to_datetime(df_new["_time"]).dt.round("1ms")
+            df_new[features] = df_new[features].fillna(0)
+            
+            while df["_time"].values[-1] == df_new["_time"].values[-1]:
+                df = pd.concat([df, df_new], ignore_index=True)
+                try:
+                    batch = next(inFile_generator)
+                except StopIteration:
+                    break
+                
+                df_new = pd.DataFrame(batch.to_pandas())
+                df_new["_time"] = pd.to_datetime(df_new["_time"]).dt.round("1ms")
+                df_new[features] = df_new[features].fillna(0)
+                processed_batches += 1
+            
+            df = pd.concat([df, df_new.loc[df['_time'] == df['_time'].values[-1]]], ignore_index=True)
+            df_new = df_new.loc[df_new['_time'] != df['_time'].values[-1]]
 
             interval_energy_all = (
                 df[["_time", "interval_energy"]]
@@ -55,12 +122,15 @@ def main(args):
             #aggregation
             df_agg = df.groupby("_time")[features].sum()
             out = pd.concat([interval_energy_all, df_agg], axis=1)
+            
             batch_out = RecordBatch.from_pandas(out, schema=out_schema, preserve_index=True)
             writer.write_batch(batch_out)
-            bar.update(min(bar.value+1, bar.max_value))
+            
+            df = df_new
+            bar.update(min(bar.value + processed_batches, bar.max_value))
         bar.finish('\n')
 
-    print(f"Saving unscaled dataset with features {features} to \"{filename}-batch-cleaned.parquet\"")
+    print(f"Saved unscaled dataset with features {features} to \"{filename}-batch-cleaned.parquet\"")
     print("[!] Remember to use .set_index(\"_time\") when using the dataset to use time as the index")
 
 if __name__ == "__main__":

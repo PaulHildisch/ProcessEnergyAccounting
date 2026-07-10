@@ -10,7 +10,7 @@ poetry.toml
 poetry.lock
 pyroject.toml
 generated_documents/
-**/plots/*.png
+**/plots/**/*.png
 **/data/**.parquet
 **/models/*
 
