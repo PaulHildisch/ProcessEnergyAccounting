@@ -8,7 +8,6 @@ from sklearn.preprocessing import StandardScaler
 from matplotlib import pyplot as plt
 from matplotlib import dates as dates
 from sklearn.metrics import r2_score, mean_absolute_error
-import progressbar
 import warnings
 
 def evaluate_model(prediction, actual):
