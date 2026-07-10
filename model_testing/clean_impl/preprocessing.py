@@ -15,6 +15,13 @@ class Preprocessor:
         #Check this
         #self.df["_time"] = pd.to_datetime(self.df["_time"]).dt.round("1ms")
         self.df["_time"] = pd.to_datetime(self.df["_time"]).dt.round("1s")
+        #just to be sure
+        self.df = self.df.sort_values("_time")
+
+
+    def _save_unaggregated_data(self):
+        #needed for the process attribution
+        self.df_unaggregated = self.df.set_index("_time")
 
 
     def _fill_nan_values(self):
@@ -33,6 +40,7 @@ class Preprocessor:
             .drop_duplicates("_time")
             .set_index("_time")[self.target]
         )
+        #should we sort here again?
         self.df = self.df[self.df["_time"].isin(interval_energy_all.index)]
         self.interval_energy_all = interval_energy_all.sort_index()
 
@@ -41,6 +49,24 @@ class Preprocessor:
         print("Aggregating data by intervals\n")
         df_agg = self.df.groupby("_time")[self.good_features].sum()
         self.df_agg = df_agg.reindex(self.interval_energy_all.index).fillna(0)
+
+
+    def _remove_outliers(self, window, max_deviation_energy):
+        print("Remove Outliers")
+        rolling_median = self.interval_energy_all.rolling(window = window, center = True).median()
+        rolling_median = rolling_median.fillna(self.interval_energy_all)
+        deviation = (self.interval_energy_all - rolling_median).abs()
+        valid = deviation <= max_deviation_energy
+        valid_times = self.interval_energy_all[valid].index
+
+        outliers_dropped = (~valid).sum()
+        print(f"Dropped {outliers_dropped} timestamps.")
+
+        self.interval_energy_all = self.interval_energy_all.loc[valid_times]
+        self.df_agg = self.df_agg.loc[valid_times]        
+        self.df = self.df[self.df["_time"].isin(valid_times)]        
+        if hasattr(self, 'df_unaggregated'):
+            self._save_unaggregated_data()
 
 
     def _split(self):
@@ -71,17 +97,20 @@ class Preprocessor:
 
         return self.X_train, self.X_test, self.y_train, self.y_test, self.t_train, self.t_test
 
-
+    #This is used for entire workflows
     def preprocess_no_split(self):
         self._convert_datetime()
         self._fill_nan_values()
         self._extract_interval_energy()
         self._aggregate()
+        self._save_unaggregated_data()
+        self._remove_outliers(window=5, max_deviation_energy=150)# adjust this to the node
 
         X = self.df_agg
         y = self.interval_energy_all
         t = self.interval_energy_all.index
-        return X, y, t
+        unaggregated = self.df_unaggregated
+        return X, y, t, unaggregated
 
     
 
