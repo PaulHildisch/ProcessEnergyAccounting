@@ -64,7 +64,7 @@ class AttributionPlotter:
         pivot_top_clipped.plot.area(ax=ax, alpha=0.8, linewidth=0, legend=False)
 
         ax.set_xlabel("Time", fontsize=12, labelpad=4)
-        ax.set_ylabel("Attributed Dynamic Power (W)", fontsize=12, labelpad=4)
+        ax.set_ylabel("Attributed Dynamic Power (Ws)", fontsize=12, labelpad=4)
         ax.tick_params(axis="both", labelsize=12)
 
         # Setup custom multi-color legend
