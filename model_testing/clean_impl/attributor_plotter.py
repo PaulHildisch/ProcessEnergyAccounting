@@ -64,7 +64,7 @@ class AttributionPlotter:
         pivot_top_clipped.plot.area(ax=ax, alpha=0.8, linewidth=0, legend=False)
 
         ax.set_xlabel("Time", fontsize=12, labelpad=4)
-        ax.set_ylabel("Attributed Dynamic Power (W)", fontsize=12, labelpad=4)
+        ax.set_ylabel("Attributed Dynamic Power (Ws)", fontsize=12, labelpad=4)
         ax.tick_params(axis="both", labelsize=12)
 
         # Setup custom multi-color legend
@@ -77,6 +77,7 @@ class AttributionPlotter:
         
         handles = [top_handle]
         labels = [f"Top {top_n} processes"]
+        
 
         if "Other" in pivot_top_clipped.columns:
             other_handle = Rectangle((0, 0), 1, 1)
@@ -103,7 +104,51 @@ class AttributionPlotter:
         
         if save_path:
             plt.savefig(save_path, bbox_inches="tight", dpi=300)
-        plt.show()
+        #plt.show()
+
+    def plot_top_processes_new(self, top_n=8, save_path=None):
+        """Plots the stacked area chart grouped by base process name."""
+        # Aggregate and Pivot
+        agg = self.df.groupby([self.time_col, "base_name"])[self.energy_col].sum().reset_index()
+        pivot = agg.pivot(index=self.time_col, columns="base_name", values=self.energy_col)
+
+        # Find Top N by peak (max)
+        top_processes = pivot.sum().sort_values(ascending=False).head(top_n).index
+        pivot_top = pivot[top_processes].copy()
+        print("Top processes: ", top_processes)
+
+        # Group remainder into "Other"
+        if len(pivot.columns) > top_n:
+            pivot_top["Other"] = pivot.drop(columns=top_processes).sum(axis=1)
+
+        pivot_top_clipped = pivot_top.clip(lower=0)
+
+        # Plotting
+        fig, ax = plt.subplots(figsize=(7.2, 3.4))
+        
+        # NOTE: legend=True is now set here!
+        pivot_top_clipped.plot.area(ax=ax, alpha=0.8, linewidth=0, legend=True)
+
+        ax.set_xlabel("Time", fontsize=12, labelpad=4)
+        ax.set_ylabel("Attributed Dynamic Power (W)", fontsize=12, labelpad=4)
+        ax.tick_params(axis="both", labelsize=12)
+
+        # Setup standard legend with actual process names
+        ax.legend(
+            title="Top Processes",
+            loc="center left",
+            bbox_to_anchor=(1.02, 0.5), # Moves it just outside the right edge
+            fontsize=10.5,
+            frameon=True,
+            framealpha=0.9,
+            ncol=1
+        )
+
+        ax.set_title("Per-Process Attributed Power Over Time", fontsize=13, pad=6)
+        plt.tight_layout(pad=0.5)
+        
+        if save_path:
+            plt.savefig(save_path, bbox_inches="tight", dpi=300)
 
     def plot_top_pids(self, top_n=20, save_path=None):
         """Plots the stacked area chart separated strictly by individual PIDs."""
@@ -133,4 +178,4 @@ class AttributionPlotter:
         plt.tight_layout()
         if save_path:
             plt.savefig(save_path, bbox_inches="tight", dpi=300)
-        plt.show()
+        #plt.show()
