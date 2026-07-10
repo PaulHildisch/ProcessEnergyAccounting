@@ -25,27 +25,27 @@ def evaluate_model(prediction, actual):
 def plot(prediction, actual, range = None, title="L2 Regression - Actual & Predicted Energy Consumption"):
     time_frame_np = np.arange(actual.index.values[0], actual.index.values[-1], 1, dtype='datetime64[s]')
     print(time_frame_np.size)
-    print(actual.size)
-    print(prediction.size)
+    print(actual.shape[0])
+    print(prediction.shape[0])
 
     if range == None:
         start = 0
         end = -1
     else: 
-        start = int(time_frame_np.size / 2 - range / 2)
-        end = int(time_frame_np.size / 2 + range / 2)
+        start = int(actual.shape[0] / 2 - range / 2)
+        end = int(actual.shape[0] / 2 + range / 2)
 
     _ , ax = plt.subplots(figsize=(10, 5))
     
     ax.scatter(
-        time_frame_np[start:end],
+        actual.index.values[start:end],
         actual[start:end],
         label="Actual Energy",
         s=0.2,
         c='g'
     )
     ax.plot(
-        time_frame_np[start:end],
+        prediction.index.values[start:end],
         prediction[start:end],
         label="Predicted Energy",
         linestyle="--",
@@ -105,8 +105,9 @@ def main(args):
     model = modelFile["model"]
     scaler = modelFile["scaler"]
 
-    zero_df = pd.DataFrame(scaler.transform(np.array([0,0,0,0,0,0,0,0,0,0,0,0]).reshape(1,-1)))
+    zero_df = pd.DataFrame(scaler.transform(np.zeros((1, 12))))
     zero_prediction = model.predict(zero_df)
+    print(zero_prediction)
     data, actual = read_data(args.pidDataSource, args.targetDataSource, scaler)
 
     prediction = predictions(data, model, zero_prediction, actual)
