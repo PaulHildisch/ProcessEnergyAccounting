@@ -21,11 +21,30 @@ def evaluate_model(prediction, actual):
 
     return r2, mae
 
-def plot(prediction, actual, range = None, title="L2 Regression - Actual & Predicted Energy Consumption"):
-    time_frame_np = np.arange(actual.index.values[0], actual.index.values[-1], 1, dtype='datetime64[s]')
-    print(time_frame_np.size)
-    print(actual.shape[0])
-    print(prediction.shape[0])
+def plot(zero_prediction, prediction, actual, range = None, title="L2 Regression - Actual & Predicted Energy Consumption"):
+    predictions_to_plot = prediction.swaplevel().sort_index()
+    empty_df = pd.DataFrame(0, index=actual.index, columns=actual.columns)
+    zero_prediction_df = pd.DataFrame(zero_prediction, index=actual.index, columns=actual.columns)
+    datap = dict({'0':zero_prediction_df})
+    bar = progressbar.ProgressBar(max_value=len(predictions_to_plot.groupby(level=0)), widgets=['Filling missing datapoint:', ' ', progressbar.Percentage(), ' ', progressbar.Bar('#'), ' ', progressbar.Timer()], redirect_stdout=True)
+    for pid, pid_df in predictions_to_plot.groupby(level=0):
+        pid_df = pid_df.droplevel(0)
+        padded_pid_df = pid_df.combine_first(empty_df)
+        datap.update({pid: padded_pid_df})
+        bar.update(bar.value + 1)
+        # print(padded_pid_df.shape[0])
+        # # padded_pid_df = padded_pid_df[padded_pid_df.columns[0]].tolist()
+        # # predictions_to_plot = pd.concat([predictions_to_plot, padded_pid_df])
+        # predictions_to_plot = predictions_to_plot.loc[pid, :].reindex(empty_df.index) 
+        # print(predictions_to_plot)
+        # print(predictions_to_plot.loc[pid].shape[0])
+    bar.finish('\n')
+    # [print(f"{pid}: {pid_prediction_df.loc[pid].shape[0]}") for pid, pid_prediction_df in predictions_to_plot.groupby(level=0)]
+    #time_frame_np = np.arange(actual.index.values[0], actual.index.values[-1], 1, dtype='datetime64[s]')
+    #print(time_frame_np.size)
+    print(f"Actual has: {actual.shape[0]}")
+    print(f"Empty DF has: {empty_df.shape[0]}")
+    print(f"Preds for pid 1 has: {predictions_to_plot.loc['1'].shape[0]}")
 
     if range == None:
         start = 0
@@ -42,18 +61,18 @@ def plot(prediction, actual, range = None, title="L2 Regression - Actual & Predi
         label="Actual Energy",
         linewidth=1.0
     )
-    ax.plot(
-        prediction.index.values[start:end],
-        prediction[start:end],
-        label="Predicted Energy",
+    ax.stackplot(
+        actual.index.values[start:end],
+        [df['interval_energy'][start:end] for df in datap.values()],
+        baseline="zero",
         linestyle="--",
         linewidth=1.0,
     )
 
     ax.set_xlabel("Time", fontsize=10, labelpad=4)
-    ax.xaxis.set_major_locator(dates.SecondLocator(interval=int(range/10)))
+    ax.xaxis.set_major_locator(dates.SecondLocator(interval=int(range/3)))
     ax.xaxis.set_major_formatter(dates.DateFormatter('%H:%M:%S'))
-    ax.set_ylabel("Interval Energy (Wh)", fontsize=12, labelpad=4)
+    ax.set_ylabel("Interval Energy (Ws)", fontsize=12, labelpad=4)
     ax.tick_params(axis="both", labelsize=10)
     ax.legend(
         loc="upper right",
@@ -66,19 +85,12 @@ def plot(prediction, actual, range = None, title="L2 Regression - Actual & Predi
     plt.close()
 
 def predictions(data, model, zero_prediction, actual):
-    preds = pd.DataFrame(0, index=actual.index, columns=actual.columns) 
+    preds = pd.DataFrame(0, index=data.index, columns=actual.columns).astype(np.float64)
     bar = progressbar.ProgressBar(max_value=len(data.groupby(level=0)), widgets=['Making predictions:', ' ', progressbar.Percentage(), ' ', progressbar.Bar('#'), ' ', progressbar.Timer()], redirect_stdout=True)
     for timestamp, interval_df in data.groupby(level=0):
         interval_df = interval_df.droplevel(0)
-        interval_pred = 0
         predictions = model.predict(interval_df)
-        interval_pred = sum([prediction - zero_prediction for prediction in predictions])
-        # print(interval_pred)
-        # for pid, pid_df in interval_df.groupby(level=0):
-        #     prediction = model.predict(pid_df)
-        #     interval_pred += prediction - zero_prediction
-        # #print(f"{timestamp} - Interval Prediction: {interval_pred}\n{timestamp} - Interval + Zero: {zero_prediction +  interval_pred}\n{timestamp} - Recorded Value: {actual.loc[timestamp, "interval_energy"]}")
-        preds.loc[timestamp] = interval_pred + zero_prediction
+        preds.loc[timestamp].iloc[:,:] = [prediction - zero_prediction for prediction in predictions]
         bar.update(bar.value+1)
     bar.finish('\n')
     return preds
@@ -105,25 +117,25 @@ def main(args):
     model = modelFile["model"]
     scaler = modelFile["scaler"]
 
-    zero_df = pd.DataFrame(scaler.transform(np.zeros((1, 12))))
+    zero_df = pd.DataFrame(scaler.transform(np.zeros((1, model.n_features_in_))))
     zero_prediction = model.predict(zero_df)
     data, actual = read_data(args.pidDataSource, args.targetDataSource, scaler)
 
     prediction = predictions(data, model, zero_prediction, actual)
-    evaluate_model(prediction, actual)
+    # evaluate_model(prediction, actual)
     
     if args.full:
-        plot(prediction, actual)
+        plot(zero_prediction[0], prediction, actual)
     else:
-        plot(prediction, actual, range=600)
+        plot(zero_prediction[0], prediction, actual, range=600)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--modelFile")
-    parser.add_argument("--targetDataSource", default="data/sarek_2_0207-cleaned-targets.parquet")
-    parser.add_argument("--pidDataSource", default="data/sarek_2_0207-cleaned-pid.parquet")
+    parser.add_argument("--targetDataSource")
+    parser.add_argument("--pidDataSource")
     parser.add_argument("--full", action="store_true", default=False)
 
     args = parser.parse_args()

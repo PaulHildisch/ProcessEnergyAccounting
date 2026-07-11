@@ -17,7 +17,15 @@ df = pd.read_parquet(args.filepath)
 # To make this dynamic we have to save the features used to train the model and read them here.
 # features = ["delta_cpu_ns", "delta_cycles", "delta_instructions", "delta_cache_misses", "delta_branch_instructions", "delta_io_bytes", "delta_net_send_bytes", "context_switches", "syscall_count", "delta_rss_memory", "syscall_class_file", "syscall_class_network", "syscall_class_memory", "syscall_class_process", "syscall_class_other", "syscall_class_sched", "syscall_class_signal", "syscall_class_time",]
 # features = ['context_switches', 'syscall_class_network', 'delta_branch_instructions', 'syscall_class_time']
-features = ["delta_cpu_ns", "delta_io_bytes", "delta_net_send_bytes", "context_switches", "syscall_count", "delta_rss_memory", "delta_cpu_time_proc", "syscall_class_file", "syscall_class_network", "syscall_class_memory", "syscall_class_other", "syscall_class_signal"]
+
+# RF
+# features = ["delta_cpu_ns", "delta_io_bytes", "delta_net_send_bytes", "context_switches", "syscall_count", "delta_rss_memory", "delta_cpu_time_proc", "syscall_class_file", "syscall_class_network", "syscall_class_memory", "syscall_class_other", "syscall_class_signal"]
+
+# L2 Ridge - automatic feature selection
+# features = ['delta_cpu_ns', 'delta_net_send_bytes', 'syscall_count', 'syscall_class_file', 'syscall_class_network', 'syscall_class_memory', 'syscall_class_process', 'syscall_class_other', 'syscall_class_sched']
+
+# L2 Ridge - generalized features
+features = ['delta_io_bytes', 'context_switches', 'delta_cpu_ns', 'delta_net_send_bytes', 'syscall_count']
 
 if args.features:
     print(f"--features is not implemented. Using hardcoded values: ({features})")
@@ -62,6 +70,12 @@ df = df[df["_time"].isin(interval_energy_all.index)]
 
 interval_energy_all = interval_energy_all.sort_index()
 interval_energy_all.to_parquet(f"{filename}-cleaned-targets.parquet")
+
+# store aggregated counters
+df_agg = df.groupby("_time")[features].sum()
+
+df_agg = pd.concat([interval_energy_all, df_agg], axis=1)
+df_agg.to_parquet(f"{filename}-cleaned-aggregated.parquet")
 
 # store rows where any recorded value > 0 (meaning something was recorded for the given pid at the given time)
 df = df.set_index(["_time","pid"])[features]
