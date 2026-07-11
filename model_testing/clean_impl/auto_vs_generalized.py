@@ -4,7 +4,8 @@ from plotting import Plotter
 from plotting import plot_dataset
 #from shapley import ProcessAttributor
 from shapley_improved import ProcessAttributorSHAP
-from shapley_improved import ProcessAttributorLinear
+from shapley_improved import ProcessAttributorEBM
+
 from universal_filtering import CustomSpearmanFilter
 import pandas as pd
 import numpy as np
@@ -130,8 +131,8 @@ train_stressng = pd.read_parquet("stressng_train0_3_.parquet")
 
 data_map = {
     "ampliseq": (train_ampliseq,test_ampliseq),
-    "sarek" : (train_sarek, test_sarek),
-   # "train_mixed_unseen_type2": (train_mixed_unseen_type2,test_mixed_unseen_type2)
+    #"sarek" : (train_sarek, test_sarek),
+    #"train_mixed_unseen_type2": (train_mixed_unseen_type2,test_mixed_unseen_type2)
 }
 #TODO add better stressng
 
@@ -184,20 +185,13 @@ for name ,value in data_map.items():
 
 
 
-
-
     preprocessor_train = Preprocessor(training_data, generalized_features)
     X_train, y_train, t_train, _ = preprocessor_train.preprocess_no_split()
     #plot_dataset(t_train, y_train, "multi_training_gen_" +name)
 
-
     preprocessor_test = Preprocessor(test_data, generalized_features)
     X_test, y_test, t_test , X_test_unaggregated = preprocessor_test.preprocess_no_split()
     #plot_dataset(t_test, y_test, "multi_testing_gen_"+name)
-
-
-
-
 
     preprocessor_train_auto = Preprocessor(training_data, features)
     X_train_auto_FULL, y_train_auto, t_train_auto, _ = preprocessor_train_auto.preprocess_no_split()
@@ -211,11 +205,11 @@ for name ,value in data_map.items():
     models = {
         "RF": RandomForestRegressor(n_estimators=100,  n_jobs=-1, random_state=42),
         #"SgD" :SGDRegressor(loss= "squared_error", penalty='l2', shuffle= False),
-        "Ridge" : Ridge(alpha=1.0),
+        #"Ridge" : Ridge(alpha=1.0),
         #"Lasso" : Lasso(alpha=0.1), # do this with their implementation |
-        "Lasso_Cvxpy": CvxpyMimicLasso(l1_penalty=0.1),
-        "bayes" : linear_model.BayesianRidge(),
-        #"EBM" : SafeEBMWrapper()
+        #"Lasso_Cvxpy": CvxpyMimicLasso(l1_penalty=0.1),
+        #"bayes" : linear_model.BayesianRidge(),
+        "EBM" : SafeEBMWrapper()
 
         #"kernelRidge" : KernelRidge(alpha=1.0) this doesnt work like that with the selection
     }
@@ -227,8 +221,8 @@ for name ,value in data_map.items():
         builder = ModelBuilder(X_train, X_test, y_train, y_test, clone(model), StandardScaler())
         y_pred, learned_idle_power = builder.run_and_save_model(".")   
 
-        plotter = Plotter(y_pred,y_test, t_test)#, window_start =50, window_end=200)
-        plotter.plot_and_save("auto_gen_plots/", "pred_gen_" + PNG_NAME +'_' + model_name)
+        # plotter = Plotter(y_pred,y_test, t_test)#, window_start =50, window_end=200)
+        # plotter.plot_and_save("auto_gen_plots/", "pred_gen_" + PNG_NAME +'_' + model_name)
 
 
         
@@ -255,8 +249,8 @@ for name ,value in data_map.items():
         builder_auto = ModelBuilder(X_train_auto, X_test_auto, y_train_auto, y_test_auto, clone(model), StandardScaler())
         y_pred_auto, learned_idle_power_auto = builder_auto.run_and_save_model(".")
 
-        plotter = Plotter(y_pred_auto,y_test_auto, t_test_auto)#, window_start =50, window_end=200)
-        plotter.plot_and_save("auto_gen_plots/", "pred_auto_" + PNG_NAME +'_' + model_name)
+        # plotter = Plotter(y_pred_auto,y_test_auto, t_test_auto)#, window_start =50, window_end=200)
+        # plotter.plot_and_save("auto_gen_plots/", "pred_auto_" + PNG_NAME +'_' + model_name)
 
 
 
@@ -307,13 +301,19 @@ for name ,value in data_map.items():
         if model_name == "RF":
             attributor_auto = ProcessAttributorSHAP( builder_auto.X_test_scaled, builder_auto.model, builder_auto.scaler)
             attributor_auto.attribute(X_test_unaggregated_auto,good_features,t_test.values,"attributions/"+name+ model_name+ "_auto_")
+
+        if model_name == "EBM":
+            #Acess true model from the wrapper
+            attributor_auto = ProcessAttributorEBM( builder_auto.X_test_scaled, builder_auto.model.model, builder_auto.scaler)
+            attributor_auto.attribute(X_test_unaggregated_auto,good_features,t_test.values,"attributions/"+name+ model_name+ "_auto_")
+
             
             #attribution gen vs auto -> auto is better
             # attributor = ProcessAttributorSHAP( builder.X_test_scaled, builder.model, builder.scaler)
             # attributor.attribute(X_test_unaggregated,good_features,t_test.values, model_name+ "_gen_")
-        else:
-            attributor_auto = ProcessAttributorLinear(  builder_auto.model, builder_auto.scaler)
-            attributor_auto.attribute(X_test_unaggregated_auto,good_features,t_test.values,"attributions/"+name + model_name+ "_auto_")
+        # else:
+        #     attributor_auto = ProcessAttributorLinear(  builder_auto.model, builder_auto.scaler)
+        #     attributor_auto.attribute(X_test_unaggregated_auto,good_features,t_test.values,"attributions/"+name + model_name+ "_auto_")
 
 
 #Nur zum Test -> eigentlich Pauls Aufgabe

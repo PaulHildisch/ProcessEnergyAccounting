@@ -125,25 +125,27 @@ class AttributionPlotter:
         pivot_top_clipped = pivot_top.clip(lower=0)
 
         # Plotting
-        fig, ax = plt.subplots(figsize=(7.2, 3.4))
+        #fig, ax = plt.subplots(figsize=(7.2, 3.4))
+        fig, ax = plt.subplots(figsize=(12, 5))
         
         # NOTE: legend=True is now set here!
         pivot_top_clipped.plot.area(ax=ax, alpha=0.8, linewidth=0, legend=True)
 
         ax.set_xlabel("Time", fontsize=12, labelpad=4)
-        ax.set_ylabel("Attributed Dynamic Power (W)", fontsize=12, labelpad=4)
-        ax.tick_params(axis="both", labelsize=12)
+        ax.set_ylabel("Attributed Dynamic Power (Ws)", fontsize=12, labelpad=4)
+        ax.tick_params(axis="both", labelsize=11)
 
         # Setup standard legend with actual process names
-        ax.legend(
-            title="Top Processes",
-            loc="center left",
-            bbox_to_anchor=(1.02, 0.5), # Moves it just outside the right edge
-            fontsize=10.5,
-            frameon=True,
-            framealpha=0.9,
-            ncol=1
-        )
+        # ax.legend(
+        #     title="Top Processes",
+        #     loc="center left",
+        #     bbox_to_anchor=(1.02, 0.5), # Moves it just outside the right edge
+        #     fontsize=10.5,
+        #     frameon=True,
+        #     framealpha=0.9,
+        #     ncol=1
+        # )
+        ax.legend(loc="upper left", bbox_to_anchor=(1.0, 1.0), fontsize=9, frameon=True)
 
         ax.set_title("Per-Process Attributed Power Over Time", fontsize=13, pad=6)
         plt.tight_layout(pad=0.5)
@@ -169,7 +171,7 @@ class AttributionPlotter:
         pivot_top_clipped.plot.area(ax=ax, alpha=0.8, linewidth=0)
         
         ax.set_xlabel("Time", fontsize=12, labelpad=4)
-        ax.set_ylabel("Attributed Dynamic Power (W)", fontsize=12, labelpad=4)
+        ax.set_ylabel("Attributed Dynamic Power (Ws)", fontsize=12, labelpad=4)
         ax.set_title(f"Per-PID Attributed Power Over Time (Top {top_n} by Peak)", fontsize=13, pad=6)
         ax.tick_params(axis="both", labelsize=11)
         
