@@ -77,14 +77,15 @@ class ModelBuilder():
         return self.y_pred, self.learned_idle_power
         
     
-    def run_and_save_model(self, path="./", model_name="random_forest.joblib"):
+    def run_and_save_model(self, path="./",save=False, model_name="random_forest.joblib"):
         self._scale()
         self._train()
         self._test()
         self._evaluate()
         self._idle_power()
         #Dont svae rn
-        #self._save_model(path, model_name)
+        if save:
+            self._save_model(path, model_name)
         return self.y_pred, self.learned_idle_power
 
     

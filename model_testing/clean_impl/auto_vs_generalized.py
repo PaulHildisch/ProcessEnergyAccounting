@@ -7,6 +7,7 @@ from shapley_improved import ProcessAttributorSHAP
 from shapley_improved import ProcessAttributorLinear
 from universal_filtering import CustomSpearmanFilter
 import pandas as pd
+import numpy as np
 
 from sklearn.pipeline import Pipeline
 from sklearn.feature_selection import VarianceThreshold, SelectFromModel
@@ -31,8 +32,33 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.linear_model import BayesianRidge
 from sklearn.model_selection import GridSearchCV
+from interpret.glassbox import ExplainableBoostingRegressor
 
+#create thsi wrapper to be able to use with scikit learn
+class SafeEBMWrapper(BaseEstimator, RegressorMixin):
+    def __init__(self, interactions=2, max_rounds=2000):
+        self.interactions = interactions
+        self.max_rounds = max_rounds
+        self.model = None
 
+    def fit(self, X, y):
+        self.model = ExplainableBoostingRegressor(
+            interactions=self.interactions,
+            max_rounds=self.max_rounds,
+            n_jobs=-1,
+            random_state=42
+        )
+        
+        self.model.fit(X, y)
+        n_features = X.shape[1]
+        all_importances = self.model.term_importances()
+        
+        # Now convert to numpy array and slice it for SelectFromModel
+        self.feature_importances_ = np.array(all_importances)[:n_features]
+        return self
+
+    def predict(self, X):
+        return self.model.predict(X)
 
 #soiwe die original e lasso
 class CvxpyMimicLasso(BaseEstimator, RegressorMixin):
@@ -105,7 +131,7 @@ train_stressng = pd.read_parquet("stressng_train0_3_.parquet")
 data_map = {
     "ampliseq": (train_ampliseq,test_ampliseq),
     "sarek" : (train_sarek, test_sarek),
-    "train_mixed_unseen_type2": (train_mixed_unseen_type2,test_mixed_unseen_type2)
+   # "train_mixed_unseen_type2": (train_mixed_unseen_type2,test_mixed_unseen_type2)
 }
 #TODO add better stressng
 
@@ -184,11 +210,12 @@ for name ,value in data_map.items():
     
     models = {
         "RF": RandomForestRegressor(n_estimators=100,  n_jobs=-1, random_state=42),
-        "SgD" :SGDRegressor(loss= "squared_error", penalty='l2', shuffle= False),
+        #"SgD" :SGDRegressor(loss= "squared_error", penalty='l2', shuffle= False),
         "Ridge" : Ridge(alpha=1.0),
-        "Lasso" : Lasso(alpha=0.1), # do this with their implementation |
+        #"Lasso" : Lasso(alpha=0.1), # do this with their implementation |
         "Lasso_Cvxpy": CvxpyMimicLasso(l1_penalty=0.1),
         "bayes" : linear_model.BayesianRidge(),
+        #"EBM" : SafeEBMWrapper()
 
         #"kernelRidge" : KernelRidge(alpha=1.0) this doesnt work like that with the selection
     }
@@ -236,7 +263,7 @@ for name ,value in data_map.items():
 
 
 
-        #unccometn forsfs
+        #unccometn for sfs
         # print("Evaluating pure SFS : " + model_name)     
         # sfs_selector = Pipeline(steps=[
         #     ('scaler', StandardScaler()),
@@ -277,6 +304,21 @@ for name ,value in data_map.items():
         # # Plot and save
         # plotter_sfs = Plotter(y_pred_sfs, y_test_sfs, t_test_sfs)
         # plotter_sfs.plot_and_save("auto_gen_plots/", "pred_sfs_" + PNG_NAME + '_' + model_name)
+        if model_name == "RF":
+            attributor_auto = ProcessAttributorSHAP( builder_auto.X_test_scaled, builder_auto.model, builder_auto.scaler)
+            attributor_auto.attribute(X_test_unaggregated_auto,good_features,t_test.values,"attributions/"+name+ model_name+ "_auto_")
+            
+            #attribution gen vs auto -> auto is better
+            # attributor = ProcessAttributorSHAP( builder.X_test_scaled, builder.model, builder.scaler)
+            # attributor.attribute(X_test_unaggregated,good_features,t_test.values, model_name+ "_gen_")
+        else:
+            attributor_auto = ProcessAttributorLinear(  builder_auto.model, builder_auto.scaler)
+            attributor_auto.attribute(X_test_unaggregated_auto,good_features,t_test.values,"attributions/"+name + model_name+ "_auto_")
+
+
+#Nur zum Test -> eigentlich Pauls Aufgabe
+# attributor = ProcessAttributorLinear(  builder.model, builder.scaler)
+# attributor.attribute(X_test_unaggregated,good_features,t_test.values)
         print()
         print()
 

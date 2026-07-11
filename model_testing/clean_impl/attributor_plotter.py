@@ -33,6 +33,7 @@ class AttributionPlotter:
         self.energy_col = energy_col
         
         # Merge process instances like wrk_99 and wrk_246 into one base name
+        # ist his correct?
         self.df["base_name"] = self.df["process_name"].str.replace(r"_\d+$", "", regex=True).str.strip()
         self.df.loc[self.df["base_name"] == "", "base_name"] = "unknown"
         

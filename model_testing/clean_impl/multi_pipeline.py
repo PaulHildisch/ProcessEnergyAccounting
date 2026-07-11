@@ -42,13 +42,13 @@ from sklearn.linear_model import Lasso
 # MAE:       5.17 Wh (2.57% of mean)
 
 #['delta_cpu_ns', 'delta_io_bytes', 'delta_net_send_bytes', 'context_switches', 'syscall_count', 'delta_rss_memory', 'delta_cpu_time_proc', 'syscall_class_file', 'syscall_class_network', 'syscall_class_memory', 'syscall_class_process', 'syscall_class_other']
-# train_sarek = [
-#     pd.read_parquet("runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet"),
-#     pd.read_parquet("runs/nfcore-20260702T193504Z/datasets/sarek_2_0207.parquet")
+train_sarek = [
+    pd.read_parquet("runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet"),
+    pd.read_parquet("runs/nfcore-20260702T193504Z/datasets/sarek_2_0207.parquet")
 
-# ]
+]
 
-# test_sarek = pd.read_parquet("runs/nfcore-20260708T212252Z/datasets/sarek3_0907.parquet")
+test_sarek = pd.read_parquet("runs/nfcore-20260708T212252Z/datasets/sarek3_0907.parquet")
 
 #---------------------------------
 
@@ -85,8 +85,8 @@ from sklearn.linear_model import Lasso
 #  Random Forest
 #   R² Score:  0.8606
 #   MAE:       12.80 Wh (6.72% of mean)
-test_stressng = pd.read_parquet("stressng_test3_10_.parquet")
-train_stressng = pd.read_parquet("stressng_train0_3_.parquet")
+# test_stressng = pd.read_parquet("stressng_test3_10_.parquet")
+# train_stressng = pd.read_parquet("stressng_train0_3_.parquet")
 
 
 
@@ -123,10 +123,10 @@ train_stressng = pd.read_parquet("stressng_train0_3_.parquet")
 
 
 
-#training_data = pd.concat(train_stressng, ignore_index=True)
-training_data = train_stressng
-test_data = test_stressng
-PNG_NAME = "stressng"
+training_data = pd.concat(train_sarek, ignore_index=True)
+training_data = training_data
+test_data = test_sarek
+PNG_NAME = "sarek3_rf_auto_features"
 
 features = [
     "delta_cpu_ns",
@@ -151,10 +151,10 @@ features = [
     "delta_branch_instructions",
 ]
 
-
+#good_features =  ['delta_io_bytes', 'context_switches', 'delta_cpu_ns', 'delta_net_send_bytes', 'syscall_count']
 
 preprocessor_train = Preprocessor(training_data, features)
-X_train, y_train, t_train, _ = preprocessor_train.preprocess_no_split()
+X_train_FULL, y_train, t_train, _ = preprocessor_train.preprocess_no_split()
 
 #Params could be tuned as well
 model = RandomForestRegressor(n_estimators=100,  n_jobs=-1, random_state=42)
@@ -165,18 +165,19 @@ model = RandomForestRegressor(n_estimators=100,  n_jobs=-1, random_state=42)
 
 
 #These thresholds could be fine tuned
-# Don't forget scaling the linear stuff before using selec_features
+#Don't forget scaling the linear stuff before using selec_features
 automatic_feature_selection = Pipeline(steps=[
     ('variance', VarianceThreshold(threshold=0.01)), #explain this
 
     ('decorrelate', CustomSpearmanFilter(threshold=0.80)),
- 
+    ('scaler', StandardScaler()),
     ('select_features', SelectFromModel(model, threshold='0.5*median'))
 ])
 
 automatic_feature_selection.set_output(transform="pandas")
-X_train = automatic_feature_selection.fit_transform(X_train, y_train)
-good_features = X_train.columns.tolist()
+automatic_feature_selection.fit_transform(X_train_FULL, y_train)
+good_features = automatic_feature_selection.get_feature_names_out().tolist()
+X_train = X_train_FULL[good_features]
 print("Selected columns:")
 print(good_features)
 
@@ -207,7 +208,7 @@ plot_dataset(t_test, y_test, "multi_testing")
 
 #idle_power_isactually idle interval energy
 builder = ModelBuilder(X_train, X_test, y_train, y_test, model, StandardScaler())
-y_pred, learned_idle_power = builder.run_and_save_model(".")
+y_pred, learned_idle_power = builder.run_and_save_model(".", model_name="ridge_auto.joblib")
 
 
 plotter = Plotter(y_pred,y_test, t_test)#, window_start =50, window_end=200)
