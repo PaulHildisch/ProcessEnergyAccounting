@@ -128,7 +128,7 @@ test_ampliseq = pd.read_parquet("runs/nfcore-20260706T112716Z/datasets/ampliseq_
 training_data = pd.concat(train_ampliseq, ignore_index=True)
 training_data = training_data
 test_data = test_ampliseq
-PNG_NAME = "TEsT"
+PNG_NAME = "ridge_pred_ampliseq_paul"
 
 features = [
     "delta_cpu_ns",
@@ -185,9 +185,9 @@ X_train_FULL, y_train, t_train, _ = preprocessor_train.preprocess_no_split()
 
 #Params could be tuned as well -> Optuna Tuner makes no real difference
 #model = RandomForestRegressor(n_estimators=100,  n_jobs=-1, random_state=42)
-#model = Ridge(alpha=1.0)
+model = Ridge(alpha=1.0)
 #model = Lasso(alpha=0.1)
-model = SafeEBMWrapper()
+#model = SafeEBMWrapper()
 
 
 #These thresholds could be fine tuned
@@ -218,7 +218,7 @@ X_test, y_test, t_test , X_test_unaggregated = preprocessor_test.preprocess_no_s
 
 #idle_power_isactually idle interval energy
 builder = ModelBuilder(X_train, X_test, y_train, y_test, model, StandardScaler())
-y_pred, learned_idle_power = builder.run_and_save_model(".", model_name="ridge_auto.joblib")
+y_pred, learned_idle_power = builder.run_and_save_model(".", model_name="ridge_auto_paul.joblib", save=True)
 
 
 plotter = Plotter(y_pred,y_test, t_test)#, window_start =50, window_end=200)
@@ -232,8 +232,8 @@ plotter.plot_and_save("", PNG_NAME)
 # attributor = ProcessAttributorSHAP( builder.X_test_scaled, builder.model, builder.scaler)
 # attributor.attribute(X_test_unaggregated,good_features,t_test.values , "RF_SHAP")
 
-attributor = ProcessAttributorEBM( builder.X_test_scaled, builder.model.model, builder.scaler)
-attributor.attribute(X_test_unaggregated,good_features,t_test.values , "EBM")
+# attributor = ProcessAttributorEBM( builder.X_test_scaled, builder.model.model, builder.scaler)
+# attributor.attribute(X_test_unaggregated,good_features,t_test.values , "EBM")
 
 
 #Nur zum Test -> eigentlich Pauls Aufgabe

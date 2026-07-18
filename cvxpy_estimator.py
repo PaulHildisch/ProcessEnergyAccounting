@@ -12,19 +12,21 @@ from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MaxAbsScaler, StandardScaler
 
+from model_testing.clean_impl.preprocessing import Preprocessor
+
 # from estimation.linear.cvxpy_optimizer import train_cvxpy_model as optimizer
 
 # ==== CONFIGURATION ====
-good_features = [
-    "delta_instructions",
-    "delta_cache_misses",
-    "delta_branch_instructions",
-    "syscall_class_other",
-    # "delta_cycles",
-    # "delta_cpu_ns",
-    # "syscall_count",
-    # "syscall_class_file",
-]
+# good_features = [
+#     "delta_instructions",
+#     "delta_cache_misses",
+#     "delta_branch_instructions",
+#     "syscall_class_other",
+#     # "delta_cycles",
+#     # "delta_cpu_ns",
+#     # "syscall_count",
+#     # "syscall_class_file",
+# ]
 
 target = "interval_energy"
 l1_penalty = 0.1
@@ -32,59 +34,84 @@ static_penalty = 0.00
 
 
 # ==== LOAD AND PREPARE DATA ====
-#df = pd.read_parquet("runs/benchmark-siena06-v6/process_interval_data.parquet")
-df = pd.read_parquet("data/process_interval_data_wf.parquet")
-#df = pd.read_parquet("data/data.parquet")
-df["_time"] = pd.to_datetime(df["_time"]).dt.round("1ms")
-df[good_features] = df[good_features].fillna(0)
-
-# Use one interval_energy value per timestamp.
-interval_energy_all = (
-    df[["_time", "interval_energy"]]
-    .dropna()
-    .drop_duplicates("_time")
-    .set_index("_time")["interval_energy"]
-)
-print(f"Number of intervals with energy: {len(interval_energy_all)}")
-
-# Keep only rows that belong to intervals with measured energy.
-df = df[df["_time"].isin(interval_energy_all.index)]
-print(f"Process-level rows after filtering: {len(df)}")
-print(f"Unique times in process data: {df['_time'].nunique()}")
-print(f"Unique times with energy: {interval_energy_all.index.nunique()}")
 
 
-# ==== TRAIN / TEST SPLIT ====
-time_values = interval_energy_all.index.sort_values()
-train_times, test_times = train_test_split(time_values, test_size=0.2, shuffle=False)
+good_features =  ['delta_io_bytes', 'context_switches', 'delta_cpu_ns', 'delta_net_send_bytes', 'syscall_count']
+train_ampliseq = [
+        pd.read_parquet("runs/nfcore-20260703T215123Z/datasets/ampliseq_1_0607.parquet"),
+        pd.read_parquet("runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet"),
+        #pd.read_parquet("runs/nfcore-20260708T125031Z/datasets/ampliseq_triple_run.parquet")
 
-interval_energy_train = interval_energy_all.loc[train_times]
-interval_energy_test = interval_energy_all.loc[test_times]
+]
 
-df_train = df[df["_time"].isin(train_times)].copy()
-df_test = df[df["_time"].isin(test_times)].copy()
+test_ampliseq = pd.read_parquet("runs/nfcore-20260706T112716Z/datasets/ampliseq_3_0707.parquet")
+
+training_data = pd.concat(train_ampliseq, ignore_index=True)
+training_data = training_data
+test_data = test_ampliseq
+
+preprocessor_train = Preprocessor(training_data, good_features, target=target)
+X_train_agg, interval_energy_train, t_train, unagg_train = preprocessor_train.preprocess_no_split()
+df_train = unagg_train.reset_index() # Bring _time back as a column for later functions
+
+# Preprocess Test Data
+preprocessor_test = Preprocessor(test_data, good_features, target=target)
+X_test_agg, interval_energy_test, t_test, unagg_test = preprocessor_test.preprocess_no_split()
+df_test = unagg_test.reset_index() # Bring _time back as a column for later functions
+
+
+
+#---------------------------------------------------------------
+# df["_time"] = pd.to_datetime(df["_time"]).dt.round("1ms")
+# df[good_features] = df[good_features].fillna(0)
+
+# # Use one interval_energy value per timestamp.
+# interval_energy_all = (
+#     df[["_time", "interval_energy"]]
+#     .dropna()
+#     .drop_duplicates("_time")
+#     .set_index("_time")["interval_energy"]
+# )
+# print(f"Number of intervals with energy: {len(interval_energy_all)}")
+
+# # Keep only rows that belong to intervals with measured energy.
+# df = df[df["_time"].isin(interval_energy_all.index)]
+# print(f"Process-level rows after filtering: {len(df)}")
+# print(f"Unique times in process data: {df['_time'].nunique()}")
+# print(f"Unique times with energy: {interval_energy_all.index.nunique()}")
+
+
+# # # ==== TRAIN / TEST SPLIT ====
+# time_values = interval_energy_all.index.sort_values()
+# train_times, test_times = train_test_split(time_values, test_size=0.2, shuffle=False)
+
+# interval_energy_train = interval_energy_all.loc[train_times]
+# interval_energy_test = interval_energy_all.loc[test_times]
+
+# df_train = df[df["_time"].isin(train_times)].copy()
+# df_test = df[df["_time"].isin(test_times)].copy()
 
 
 # ==== TRAINING HELPERS ====
 def train_cvxpy_model(
-    df: pd.DataFrame,
+    X_train_agg: pd.DataFrame,
     features: list,
     interval_energy: pd.Series,
     l1_penalty=1.0,
     static_penalty=0.0,
 ):
-    df = df.copy()
-    df["_time"] = pd.to_datetime(df["_time"]).dt.round("1ms")
-    df[features] = df[features].fillna(0)
-    df = df[df["_time"].isin(interval_energy.index)]
-    interval_energy = interval_energy.sort_index()
+    # df = df.copy()
+    # df["_time"] = pd.to_datetime(df["_time"]).dt.round("1ms")
+    # df[features] = df[features].fillna(0)
+    # df = df[df["_time"].isin(interval_energy.index)]
+    # interval_energy = interval_energy.sort_index()
 
-    # Aggregate process features per interval.
-    df_agg = df.groupby("_time")[features].sum()
-    df_agg = df_agg.reindex(interval_energy.index).fillna(0)
+    # # Aggregate process features per interval.
+    # df_agg = df.groupby("_time")[features].sum()
+    # df_agg = df_agg.reindex(interval_energy.index).fillna(0)
 
     scaler = MaxAbsScaler()
-    X = scaler.fit_transform(df_agg.values)
+    X = scaler.fit_transform(X_train_agg.values)
 
     w = cp.Variable(X.shape[1])
     s = cp.Variable()
@@ -108,7 +135,7 @@ def predict_per_interval(df, weights, scaler, good_features, static_energy):
 
 # ==== TRAIN ====
 results = train_cvxpy_model(
-    df_train,
+    X_train_agg,
     good_features,
     interval_energy_train,
     l1_penalty,
@@ -165,7 +192,7 @@ ax.plot(
 )
 
 ax.set_xlabel("Time", fontsize=12, labelpad=4)
-ax.set_ylabel("Interval Energy (Wh)", fontsize=12, labelpad=4)
+ax.set_ylabel("Interval Energy (Ws)", fontsize=12, labelpad=4)
 ax.tick_params(axis="both", labelsize=12)
 ax.legend(
     loc="upper right",
@@ -248,7 +275,7 @@ fig, ax = plt.subplots(figsize=(7.2, 3.4))
 pivot_top_clipped.loc[pivot_mask].plot.area(ax=ax, alpha=0.8, linewidth=0, legend=False)
 
 ax.set_xlabel("Time", fontsize=12, labelpad=4)
-ax.set_ylabel("Estimated Process Energy (Wh)", fontsize=12, labelpad=4)
+ax.set_ylabel("Estimated Process Energy (Ws)", fontsize=12, labelpad=4)
 ax.tick_params(axis="both", labelsize=12)
 
 other_color = plt.rcParams["axes.prop_cycle"].by_key()["color"][
@@ -310,7 +337,7 @@ plt.show()
 
 
 # ==== PLOTS: TOP PIDS ====
-N2 = 20
+N2 = 8
 
 df_test_plot["pid_label"] = (
     df_test_plot["process_name"] + " (" + df_test_plot["pid"].astype(str) + ")"
@@ -325,6 +352,7 @@ pivot2 = agg2.pivot(
 ).fillna(0)
 
 top_pids = pivot2.max().sort_values(ascending=False).head(N2).index
+#top_pids = pivot2.sum().sort_values(ascending=False).head(N2).index
 pivot2_top = pivot2[top_pids].copy()
 pivot2_top["Other"] = pivot2.drop(columns=top_pids).sum(axis=1)
 pivot2_top_clipped = pivot2_top.clip(lower=0)
@@ -332,9 +360,9 @@ pivot2_top_clipped = pivot2_top.clip(lower=0)
 fig, ax = plt.subplots(figsize=(12, 5))
 pivot2_top_clipped.loc[pivot_mask].plot.area(ax=ax, alpha=0.8, linewidth=0)
 ax.set_xlabel("Time", fontsize=12, labelpad=4)
-ax.set_ylabel("Estimated Process Energy (Wh)", fontsize=12, labelpad=4)
+ax.set_ylabel("Estimated Process Energy (Ws)", fontsize=12, labelpad=4)
 ax.set_title(
-    "Per-PID Energy Contribution Over Time (Top 10 by Peak)", fontsize=13, pad=6
+    "Per-PID Energy Contribution Over Time ", fontsize=13, pad=6
 )
 ax.tick_params(axis="both", labelsize=11)
 ax.legend(loc="upper left", bbox_to_anchor=(1.0, 1.0), fontsize=9, frameon=True)

@@ -11,7 +11,7 @@ class Plotter:
         #check this
         self.window_end = window_end if window_end is not None else len(t_test)
     
-    def _init_sub_plots(self, label_actual="Actual Energy", label_model="Predicted (Random Forest)"):
+    def _init_sub_plots(self, label_actual="Actual Energy", label_model="Predicted Energy"):
         self.fig, self.ax = plt.subplots(figsize=(7.2, 3.4))
         self.ax.plot(
             self.t_test[self.window_start : self.window_end],

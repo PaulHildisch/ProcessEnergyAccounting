@@ -49,7 +49,7 @@ class AttributionPlotter:
         # pivot = pivot.fillna(0)
 
         # Find Top N by peak (max)
-        # top_processes = pivot.max().sort_values(ascending=False).head(top_n).index
+        #top_processes = pivot.max().sort_values(ascending=False).head(top_n).index
         top_processes = pivot.sum().sort_values(ascending=False).head(top_n).index
         pivot_top = pivot[top_processes].copy()
         print("Top processes: ", top_processes)
@@ -115,6 +115,7 @@ class AttributionPlotter:
 
         # Find Top N by peak (max)
         top_processes = pivot.sum().sort_values(ascending=False).head(top_n).index
+        #top_processes = pivot.max().sort_values(ascending=False).head(top_n).index
         pivot_top = pivot[top_processes].copy()
         print("Top processes: ", top_processes)
 
@@ -145,7 +146,7 @@ class AttributionPlotter:
         #     framealpha=0.9,
         #     ncol=1
         # )
-        ax.legend(loc="upper left", bbox_to_anchor=(1.0, 1.0), fontsize=9, frameon=True)
+        ax.legend(loc="upper left", bbox_to_anchor=(1.0, 1.0), fontsize=10, frameon=True)
 
         ax.set_title("Per-Process Attributed Power Over Time", fontsize=13, pad=6)
         plt.tight_layout(pad=0.5)
@@ -158,7 +159,7 @@ class AttributionPlotter:
         agg = self.df.groupby([self.time_col, "pid_label"])[self.energy_col].sum().reset_index()
         pivot = agg.pivot(index=self.time_col, columns="pid_label", values=self.energy_col).fillna(0)
 
-        # top_pids = pivot.max().sort_values(ascending=False).head(top_n).index
+        #top_pids = pivot.max().sort_values(ascending=False).head(top_n).index
         top_pids = pivot.sum().sort_values(ascending=False).head(top_n).index
         pivot_top = pivot[top_pids].copy()
         
@@ -172,11 +173,11 @@ class AttributionPlotter:
         
         ax.set_xlabel("Time", fontsize=12, labelpad=4)
         ax.set_ylabel("Attributed Dynamic Power (Ws)", fontsize=12, labelpad=4)
-        ax.set_title(f"Per-PID Attributed Power Over Time (Top {top_n} by Peak)", fontsize=13, pad=6)
+        ax.set_title(f"Per-PID Attributed Power Over Time (Top {top_n})", fontsize=13, pad=6)
         ax.tick_params(axis="both", labelsize=11)
         
         # Standard legend for PID view (too many for a single grouped color block)
-        ax.legend(loc="upper left", bbox_to_anchor=(1.0, 1.0), fontsize=9, frameon=True)
+        ax.legend(loc="upper left", bbox_to_anchor=(1.0, 1.0), fontsize=10, frameon=True)
         
         plt.tight_layout()
         if save_path:
