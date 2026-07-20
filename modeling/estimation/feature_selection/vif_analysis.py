@@ -11,8 +11,8 @@ where R_i^2 is the coefficient of determination from regressing feature i on
 all remaining features. Rules of thumb: VIF < 5 is fine, 5-10 is moderate, and
 VIF > 10 indicates problematic multicollinearity.
 
-VIF is computed with statsmodels' standard
-variance_inflation_factor implementation.
+VIF is computed with scikit-learn's LinearRegression to avoid adding a
+statsmodels dependency.
 """
 
 import argparse
@@ -21,7 +21,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from statsmodels.stats.outliers_influence import variance_inflation_factor
+from sklearn.linear_model import LinearRegression
 
 DEFAULT_FEATURES = [
     "delta_cpu_ns",
@@ -171,35 +171,43 @@ def compute_vif(
     df: pd.DataFrame,
     features: list[str],
 ) -> pd.DataFrame:
-    """Compute VIF for each feature using statsmodels.
+    """
+    Compute the Variance Inflation Factor for each feature.
 
-    Constant or non-finite columns are removed before calculation because they do
-    not carry useful multicollinearity information and can make the underlying
-    regression singular. Remaining infinite VIF values indicate exact or near
-    exact linear dependence.
+    Each feature is regressed on all the others; VIF = 1 / (1 - R^2).
+    Constant features (zero variance) get VIF = 1.0, and perfectly collinear
+    features (R^2 ~ 1) get VIF = inf.
+
+    Args:
+        df: DataFrame with the feature columns
+        features: List of feature names
+
+    Returns:
+        DataFrame with columns [feature, VIF], sorted high to low
     """
     available_features = [f for f in features if f in df.columns]
-    x = (
-        df[available_features]
-        .apply(pd.to_numeric, errors="coerce")
-        .replace([np.inf, -np.inf], np.nan)
-    )
-    x = x.fillna(0.0)
+    feature_matrix = df[available_features].to_numpy(dtype=float)
 
-    constant_features = [col for col in x.columns if np.isclose(x[col].var(), 0.0)]
-    if constant_features:
-        print(f"Skipping constant features for VIF: {constant_features}")
-        x = x.drop(columns=constant_features)
+    vif_values: list[float] = []
+    for i in range(feature_matrix.shape[1]):
+        y_i = feature_matrix[:, i]
 
-    if x.shape[1] == 0:
-        return pd.DataFrame(columns=["feature", "VIF"])
-    if x.shape[1] == 1:
-        return pd.DataFrame({"feature": x.columns.to_list(), "VIF": [1.0]})
+        # A constant feature cannot be inflated by the others.
+        if np.var(y_i) == 0.0:
+            vif_values.append(1.0)
+            continue
 
-    matrix = x.to_numpy(dtype=float)
-    vif_values = [variance_inflation_factor(matrix, i) for i in range(matrix.shape[1])]
+        x_others = np.delete(feature_matrix, i, axis=1)
+        model = LinearRegression()
+        model.fit(x_others, y_i)
+        r_squared = model.score(x_others, y_i)
 
-    vif_df = pd.DataFrame({"feature": x.columns.to_list(), "VIF": vif_values})
+        if r_squared >= 1.0 - 1e-12:
+            vif_values.append(float("inf"))
+        else:
+            vif_values.append(1.0 / (1.0 - r_squared))
+
+    vif_df = pd.DataFrame({"feature": available_features, "VIF": vif_values})
     vif_df = vif_df.sort_values("VIF", ascending=False).reset_index(drop=True)
     return vif_df
 

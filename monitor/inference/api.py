@@ -21,7 +21,6 @@ class InferenceRequest:
         self.weights = np.asarray(self.model.get("weights", []), dtype=float)
         self.scaler = self.model.get("scaler")
         self.static_energy = float(self.model.get("static_energy", 0.0) or 0.0)
-        self.target_unit = str(self.model.get("target_unit", "J"))
         self._validate_model()
         self._log_model_expectations()
 
@@ -44,34 +43,20 @@ class InferenceRequest:
 
     def _log_model_expectations(self) -> None:
         logger.info("Loaded inference model from %s", self.model_path)
-        logger.info("Model target unit: %s", self.target_unit)
         logger.info("Model expects %d features", len(self.features))
         logger.info(
             "Expected feature input format: flat numeric row with keys in this order: %s",
             ", ".join(str(feature) for feature in self.features),
         )
 
-    def predict_dynamic_sample(self, sample: dict[str, Any]) -> float:
+    def predict_sample(self, sample: dict[str, Any]) -> float:
         feature_row = np.array(
             [[self._to_float(sample.get(feature, 0.0)) for feature in self.features]],
             dtype=float,
         )
         scaled_features = self.scaler.transform(feature_row)
-        return float((scaled_features @ self.weights).sum())
-
-    def predict_total_sample(self, sample: dict[str, Any]) -> float:
-        return self.predict_dynamic_sample(sample) + self.static_energy
-
-    def predict_sample(self, sample: dict[str, Any]) -> float:
-        return self.predict_dynamic_sample(sample)
-
-    def predict_many_dynamic(
-        self, samples: dict[str, dict[str, Any]]
-    ) -> dict[str, float]:
-        return {
-            name: self.predict_dynamic_sample(sample)
-            for name, sample in samples.items()
-        }
+        prediction = float((scaled_features @ self.weights).sum() + self.static_energy)
+        return prediction
 
     def predict_many(self, samples: dict[str, dict[str, Any]]) -> dict[str, float]:
         return {name: self.predict_sample(sample) for name, sample in samples.items()}
@@ -96,16 +81,7 @@ class InferenceRequest:
                 str(pid): self._flatten_metric_sample(metrics)
                 for pid, metrics in deltas.items()
             }
-            predictions = self.predict_many_dynamic(samples)
-            if exporter is not None:
-                exporter.set_process_energy_predictions(
-                    timestamp=timestamp,
-                    interval=interval,
-                    predictions=predictions,
-                    deltas=deltas,
-                    node=node,
-                )
-            return predictions
+            return self.predict_many(samples)
 
         if mode == "container":
             if not container_metrics:
@@ -115,7 +91,7 @@ class InferenceRequest:
                 container_name: self._flatten_metric_sample(metrics)
                 for container_name, metrics in container_metrics.items()
             }
-            predictions = self.predict_many_dynamic(samples)
+            predictions = self.predict_many(samples)
             for container_name, predicted_energy in predictions.items():
                 logger.info(
                     "Predicted container energy: container=%s energy=%s",
@@ -139,7 +115,7 @@ class InferenceRequest:
                 pod_name: self._flatten_metric_sample(metrics)
                 for pod_name, metrics in pod_metrics.items()
             }
-            predictions = self.predict_many_dynamic(samples)
+            predictions = self.predict_many(samples)
             for pod_name, predicted_energy in predictions.items():
                 logger.info(
                     "Predicted pod energy: pod=%s energy=%s",

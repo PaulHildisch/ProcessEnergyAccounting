@@ -1,5 +1,4 @@
 import logging
-import queue
 import threading
 import time
 from collections import deque
@@ -37,16 +36,11 @@ class DeltaAggregator:
         k8s_manager=None,
         meter_client=None,
         meter_sensor_id="L1",
-        perf_events="auto",
-        enable_perf_counters=True,
-        enable_hardware_metrics=True,
     ):
         self.monitor = MonitoringClient(
-            model_features=getattr(online_estimator, "features", None),
-            perf_events=perf_events,
-            enable_perf_counters=enable_perf_counters,
+            model_features=getattr(online_estimator, "features", None)
         )
-        self.hw_profiler = HardwareProfiler() if enable_hardware_metrics else None
+        self.hw_profiler = HardwareProfiler()
         self.interval = interval
         self.exporter = exporter
         self.docker_manager = docker_manager
@@ -60,67 +54,49 @@ class DeltaAggregator:
         self.snapshots = deque(maxlen=2)  # Store only last two process metric snapshots
         self.running = False
         self.thread = threading.Thread(target=self._collect, daemon=True)
-        self.db_write_queue = queue.Queue() if self.db_client else None
-        self.db_writer_thread = (
-            threading.Thread(target=self._db_writer_loop, daemon=True)
-            if self.db_client
-            else None
-        )
-        self.meter_lock = threading.Lock()
-        self.meter_sum = 0.0
-        self.meter_count = 0
-        self.meter_thread = (
-            threading.Thread(target=self._meter_loop, daemon=True)
-            if self.meter_client
-            else None
-        )
 
     def start(self):
         self.running = True
-        if self.db_writer_thread is not None:
-            self.db_writer_thread.start()
-        if self.meter_thread is not None:
-            self.meter_thread.start()
         self.thread.start()
 
     def stop(self):
         self.running = False
-        self.thread.join(timeout=self.interval + 1.0)
-        if self.db_write_queue is not None:
-            self.db_write_queue.put(None)
-        if self.db_writer_thread is not None:
-            self.db_writer_thread.join(timeout=5.0)
-        if self.meter_thread is not None:
-            self.meter_thread.join(timeout=5.0)
+        self.thread.join()
         self.monitor.close()
 
     def _collect(self):
-        interval_start_wall = time.time()
-        next_deadline = time.monotonic() + self.interval
-        next_deadline_wall = interval_start_wall + self.interval
         while self.running:
             try:
-                while self.running:
-                    remaining = next_deadline - time.monotonic()
-                    if remaining <= 0:
-                        break
-                    time.sleep(min(remaining, 0.1))
+                interval_start = time.time()
+                avg_power = 0.0
+                interval_energy = 0.0
+                while (time.time() - interval_start) < self.interval:
+                    sample_time = time.time()
+                    sleep_time = self.sample_rate - (time.time() - sample_time)
+                    if sleep_time > 0:
+                        time.sleep(sleep_time)
+                interval_end = time.time()
+                if self.meter_client:
+                    power_samples = []
+                    try:
+                        power = sum(
+                            self.meter_client.get_power_usage(sid)
+                            for sid in self.meter_sensor_ids
+                        )
+                        if power is not None:
+                            power_samples.append(power)
+                    except Exception as e:
+                        print(f"Error fetching power data: {e}")
+                    avg_power = (
+                        sum(power_samples) / len(power_samples)
+                        if power_samples
+                        else 0.0
+                    )
+                    actual_interval = interval_end - interval_start
+                    interval_energy = avg_power * actual_interval
 
-                if not self.running:
-                    break
-
-                interval_end = next_deadline_wall
-                fetch_started = time.monotonic()
                 process_data = self.monitor.get_process_list()
-                fetch_duration = time.monotonic() - fetch_started
-                logging.info("Metric fetch took %.3fs", fetch_duration)
                 self.snapshots.append((interval_end, process_data))
-
-                avg_power = self._consume_avg_power()
-                actual_interval = interval_end - interval_start_wall
-                # avg_power is measured in watts and actual_interval in seconds,
-                # so interval_energy is stored in joules (W * s).
-                interval_energy = avg_power * actual_interval
 
                 if len(self.snapshots) == 2:
                     interval, deltas = self.get_delta()
@@ -184,141 +160,73 @@ class DeltaAggregator:
                             )
                         )
 
-                    if self.exporter is not None:
-                        exporter_mode = getattr(self.exporter, "mode", "process")
-                        if exporter_mode == "process":
-                            log_process_metrics_table(
-                                deltas,
-                                process_energy_predictions,
-                                model_features=getattr(
-                                    self.online_estimator, "features", None
-                                ),
-                            )
-                            self.exporter.set_process_metrics(
-                                timestamp=interval_end,
-                                interval=interval,
-                                deltas=deltas,
-                                node="localhost",
-                            )
-                        elif exporter_mode == "container":
-                            logging.info(
-                                "Prometheus exporter mode 'container' selected with %s aggregated containers available.",
-                                len(container_metrics),
-                            )
-                            self.exporter.set_container_metrics(
-                                timestamp=interval_end,
-                                interval=interval,
-                                node="localhost",
-                                container_metrics=container_metrics,
-                            )
-                        elif exporter_mode == "pod":
-                            logging.info(
-                                "Prometheus exporter mode 'pod' selected with %s aggregated pods available.",
-                                len(pod_metrics),
-                            )
-                            self.exporter.set_pod_metrics(
-                                timestamp=interval_end,
-                                interval=interval,
-                                node="localhost",
-                                pod_metrics=pod_metrics,
-                            )
+                    if (
+                        self.exporter is not None
+                        and getattr(self.exporter, "mode", "process") == "process"
+                    ):
+                        log_process_metrics_table(
+                            deltas,
+                            process_energy_predictions,
+                            model_features=getattr(
+                                self.online_estimator, "features", None
+                            ),
+                        )
+                        self.exporter.set_process_metrics(
+                            timestamp=interval_end,
+                            interval=interval,
+                            deltas=deltas,
+                            node="localhost",
+                        )
 
-                    # Push deltas to aggregation layer without blocking the collector loop.
+                    # Push deltas to aggregation layer
                     if deltas and self.db_client and self.meter_client is None:
                         print(f"[{time.strftime('%X')}] delta count: {len(deltas)}")
-                        if self.db_write_queue is not None:
-                            self.db_write_queue.put(
-                                {
-                                    "timestamp": interval_end,
-                                    "interval": interval,
-                                    "deltas": deltas,
-                                    "pid_to_container": pid_to_container,
-                                }
-                            )
-                    elif self.db_client and self.meter_client:
-                        print(
-                            f"[{time.strftime('%X')}] delta count: {len(deltas)}, avg_power_w: {avg_power}, interval_energy_j: {interval_energy}"
+                        self.db_client.write_deltas(
+                            timestamp=interval_end,
+                            interval=interval,
+                            deltas=deltas,
+                            pid_to_container=pid_to_container,
                         )
-                        if self.db_write_queue is not None:
-                            self.db_write_queue.put(
-                                {
-                                    "timestamp": interval_end,
-                                    "interval": interval,
-                                    "deltas": deltas,
-                                    "interval_energy": interval_energy,
-                                    "avg_power": avg_power,
-                                    "pid_to_container": pid_to_container,
-                                }
-                            )
-
-                after_work = time.monotonic()
-                missed_by = after_work - next_deadline
-                if missed_by > 0.001:
-                    logging.warning(
-                        "Collector missed interval deadline by %.3fs", missed_by
-                    )
-                    intervals_missed = int(missed_by // self.interval)
-                    deadline_step = (intervals_missed + 1) * self.interval
-                    next_deadline += deadline_step
-                    next_deadline_wall += deadline_step
-                else:
-                    next_deadline += self.interval
-                    next_deadline_wall += self.interval
-                interval_start_wall = interval_end
-
+                    elif self.db_client and self.meter_client:
+                        process_delta_samples = [
+                            metrics for _pid, metrics in sorted(deltas.items())[:2]
+                        ]
+                        logging.info(
+                            "delta count=%s avg_power=%s interval_energy=%s sample_process_deltas=%s",
+                            len(deltas),
+                            avg_power,
+                            interval_energy,
+                            process_delta_samples,
+                        )
+                        self.db_client.write_deltas(
+                            timestamp=interval_end,
+                            interval=interval,
+                            deltas=deltas,
+                            interval_energy=interval_energy,
+                            avg_power=avg_power,
+                            pid_to_container=pid_to_container,
+                        )
+                    elif self.db_client is None and self.meter_client is None:
+                        if self.exporter is not None:
+                            if self.exporter.mode == "container":
+                                logging.info(
+                                    "Prometheus exporter mode 'container' selected with %s aggregated containers available.",
+                                    len(container_metrics),
+                                )
+                            elif self.exporter.mode == "pod":
+                                logging.info(
+                                    "Prometheus exporter mode 'pod' selected with %s aggregated pods available.",
+                                    len(pod_metrics),
+                                )
+                                self.exporter.set_pod_metrics(
+                                    timestamp=interval_end,
+                                    interval=interval,
+                                    node="localhost",
+                                    pod_metrics=pod_metrics,
+                                )
             except Exception:
                 logging.exception("Collector loop failed")
                 self.running = False
-
-    def _db_writer_loop(self):
-        if self.db_write_queue is None or self.db_client is None:
-            return
-        while True:
-            item = self.db_write_queue.get()
-            if item is None:
-                break
-            try:
-                self.db_client.write_deltas(**item)
-            except Exception:
-                logging.exception("DB writer failed")
-
-    def _meter_loop(self):
-        while self.running:
-            sample_started = time.monotonic()
-            power = self._sample_power()
-            if power is not None:
-                with self.meter_lock:
-                    self.meter_sum += power
-                    self.meter_count += 1
-            sample_elapsed = time.monotonic() - sample_started
-            sleep_time = max(self.sample_rate - sample_elapsed, 0.0)
-            if sleep_time > 0:
-                time.sleep(sleep_time)
-
-    def _consume_avg_power(self):
-        with self.meter_lock:
-            if self.meter_count == 0:
-                return 0.0
-            avg_power = self.meter_sum / self.meter_count
-            self.meter_sum = 0.0
-            self.meter_count = 0
-            return avg_power
-
-    def _sample_power(self):
-        if self.meter_client is None:
-            return None
-        try:
-            sensor_ids = set(self.meter_sensor_ids)
-            readings = [
-                sensor.get("data", {}).get("ActivePower")
-                for sensor in self.meter_client.get_sensor_data()
-                if sensor.get("id") in sensor_ids or sensor.get("name") in sensor_ids
-            ]
-            readings = [reading for reading in readings if reading is not None]
-            return sum(readings) if readings else None
-        except Exception as exc:
-            logging.warning("Error fetching power data: %s", exc)
-            return None
 
     def _get_estimation_mode(self):
         if self.exporter is not None:
@@ -360,11 +268,6 @@ if __name__ == "__main__":
     online_estimator = create_online_estimator(args)
     k8s_manager = create_k8s_manager(args, cgroups_manager)
 
-    perf_events = (args.perf_events or "auto").strip().lower()
-    hardware_metrics = (args.hardware_metrics or "all").strip().lower()
-    enable_perf_counters = perf_events != "no"
-    enable_hardware_metrics = hardware_metrics != "no"
-
     monitor = DeltaAggregator(
         interval=args.interval,
         sample_rate=sample_rate,
@@ -376,9 +279,6 @@ if __name__ == "__main__":
         docker_manager=docker_manager,
         online_estimator=online_estimator,
         k8s_manager=k8s_manager,
-        perf_events=perf_events,
-        enable_perf_counters=enable_perf_counters,
-        enable_hardware_metrics=enable_hardware_metrics,
     )
 
     monitor.start()
@@ -388,12 +288,7 @@ if __name__ == "__main__":
         while True:
             time.sleep(60)
     except KeyboardInterrupt:
-        print("Stopping monitor...")
-        try:
-            monitor.stop()
-        except KeyboardInterrupt:
-            print("Forced stop requested; exiting.")
-        finally:
-            if db_client:
-                db_client.close()
-            print("Monitoring stopped.")
+        monitor.stop()
+        if db_client:
+            db_client.close()
+        print("Monitoring stopped.")

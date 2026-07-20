@@ -15,9 +15,6 @@ def compute_delta(snapshots, hw_profiler):
     dict2 = {proc["pid"]: proc for proc in d2}
     interval = t2 - t1
     deltas = {}
-    interval_hw_features = (
-        hw_profiler.get_interval_features() if hw_profiler is not None else {}
-    )
 
     for pid in set(dict1) & set(dict2):
         prev = dict1[pid]
@@ -43,9 +40,6 @@ def compute_delta(snapshots, hw_profiler):
             curr, prev, "branch_instructions", clamp_monotonic=True
         )
         delta_cycles = _delta(curr, prev, "cycles", clamp_monotonic=True)
-        delta_cache_references = _delta(
-            curr, prev, "cache_references", clamp_monotonic=True
-        )
         delta_cache_misses = _delta(curr, prev, "cache_misses", clamp_monotonic=True)
         delta_stalled_cycles_backend = _delta(
             curr, prev, "stalled_cycles_backend", clamp_monotonic=True
@@ -130,7 +124,6 @@ def compute_delta(snapshots, hw_profiler):
             "delta_instructions": int(delta_instruction),
             "delta_cycles": int(delta_cycles),
             "delta_branch_instructions": int(delta_branch_instr),
-            "delta_cache_references": int(delta_cache_references),
             "delta_cache_misses": int(delta_cache_misses),
             "delta_stalled_cycles_backend": int(delta_stalled_cycles_backend),
             "delta_llc_load_misses": int(delta_llc_load_misses),
@@ -154,11 +147,12 @@ def compute_delta(snapshots, hw_profiler):
             "delta_net_recv_packets": int(delta_net_recv_packets),
         }
 
-        # Attach one host-level hardware snapshot to every process record so
-        # the DB layer can store it per PID without re-reading sysfs for every
-        # PID in the interval.
-        if interval_hw_features:
-            deltas[pid].update(interval_hw_features)
+        # Attach per-interval hardware features to every process record so
+        # the DB layer can store them alongside the process-level counters.
+        # Static fields (arch, vendor, tdp_tier, numa) are cached in
+        # HardwareProfiler.__init__; dynamic fields (governor, freq_ratio)
+        # are read fresh each interval.
+        deltas[pid].update(hw_profiler.get_interval_features())
 
         prev_classes = prev.get("syscall_classes") or {}
         curr_classes = curr.get("syscall_classes") or {}

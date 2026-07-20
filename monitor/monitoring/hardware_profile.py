@@ -23,87 +23,6 @@ __all__ = ["HardwareProfiler", "HardwareProfile", "collect_hardware_profile"]
 
 logger = logging.getLogger(__name__)
 
-HARDWARE_TAG_DEFAULTS = {
-    "hw_arch": "unknown",
-    "hw_cpu_vendor": "unknown",
-    "hw_tdp_tier": "unknown",
-    "hw_cpu_governor": "unknown",
-    "hw_core_count_bucket": "unknown",
-    "hw_ram_size_bucket": "unknown",
-    "hw_ram_slots_bucket": "unknown",
-    "hw_fan_count_bucket": "unknown",
-    "hw_temp_state": "unknown",
-}
-
-HARDWARE_ONE_HOT_CATEGORIES = {
-    "hw_arch": {
-        "x86_64": "hw_arch_x86_64",
-        "arm64": "hw_arch_arm64",
-        "riscv64": "hw_arch_riscv64",
-        "other": "hw_arch_other",
-    },
-    "hw_cpu_vendor": {
-        "intel": "hw_cpu_vendor_intel",
-        "amd": "hw_cpu_vendor_amd",
-        "arm": "hw_cpu_vendor_arm",
-        "apple": "hw_cpu_vendor_apple",
-        "other": "hw_cpu_vendor_other",
-    },
-    "hw_tdp_tier": {
-        "low": "hw_tdp_tier_low",
-        "mid": "hw_tdp_tier_mid",
-        "high": "hw_tdp_tier_high",
-        "unknown": "hw_tdp_tier_unknown",
-    },
-    "hw_cpu_governor": {
-        "performance": "hw_cpu_governor_performance",
-        "powersave": "hw_cpu_governor_powersave",
-        "schedutil": "hw_cpu_governor_schedutil",
-        "ondemand": "hw_cpu_governor_ondemand",
-        "unknown": "hw_cpu_governor_unknown",
-    },
-    "hw_core_count_bucket": {
-        "1_4": "hw_cores_1_4",
-        "5_8": "hw_cores_5_8",
-        "9_16": "hw_cores_9_16",
-        "17_32": "hw_cores_17_32",
-        "33_plus": "hw_cores_33_plus",
-        "unknown": "hw_cores_unknown",
-    },
-    "hw_ram_size_bucket": {
-        "lt16gb": "hw_ram_lt16gb",
-        "16_32gb": "hw_ram_16_32gb",
-        "33_64gb": "hw_ram_33_64gb",
-        "65_128gb": "hw_ram_65_128gb",
-        "129gb_plus": "hw_ram_129gb_plus",
-        "unknown": "hw_ram_unknown",
-    },
-    "hw_ram_slots_bucket": {
-        "single": "hw_ram_slots_single",
-        "dual": "hw_ram_slots_dual",
-        "quad_or_more": "hw_ram_slots_quad_or_more",
-        "unknown": "hw_ram_slots_unknown",
-    },
-    "hw_fan_count_bucket": {
-        "0": "hw_fans_0",
-        "1": "hw_fans_1",
-        "2_plus": "hw_fans_2_plus",
-        "unknown": "hw_fans_unknown",
-    },
-    "hw_temp_state": {
-        "cool": "hw_temp_cool",
-        "normal": "hw_temp_normal",
-        "hot": "hw_temp_hot",
-        "unknown": "hw_temp_unknown",
-    },
-}
-
-HARDWARE_ONE_HOT_FIELDS = tuple(
-    field
-    for category_fields in HARDWARE_ONE_HOT_CATEGORIES.values()
-    for field in category_fields.values()
-)
-
 
 # ---------------------------------------------------------------------------
 # Dataclass
@@ -120,16 +39,6 @@ class HardwareProfile:
     numa_node_count: int  # number of NUMA nodes (1 = single-socket / no NUMA)
     freq_ratio: float  # mean(scaling_cur_freq / cpuinfo_max_freq) over online CPUs;
     # 0.0 if unavailable
-    core_count: int
-    core_count_bucket: str
-    ram_total_gb: float
-    ram_size_bucket: str
-    ram_slot_count: int  # populated slots; -1 if unavailable
-    ram_slots_bucket: str
-    fan_count: int  # readable fan sensors; -1 if unavailable
-    fan_count_bucket: str
-    temperature_c: float  # hottest readable sensor; 0.0 if unavailable
-    temp_state: str
 
 
 # ---------------------------------------------------------------------------
@@ -280,131 +189,6 @@ def _read_freq_ratio() -> float:
     return round(sum(ratios) / len(ratios), 3)
 
 
-def _read_core_count() -> int:
-    """Return the logical CPU count, or 0 if unavailable."""
-    return int(os.cpu_count() or 0)
-
-
-def _core_count_bucket(count: int) -> str:
-    if count <= 0:
-        return "unknown"
-    if count <= 4:
-        return "1_4"
-    if count <= 8:
-        return "5_8"
-    if count <= 16:
-        return "9_16"
-    if count <= 32:
-        return "17_32"
-    return "33_plus"
-
-
-def _read_ram_total_gb() -> float:
-    """Read total RAM from /proc/meminfo in GiB."""
-    try:
-        for line in Path("/proc/meminfo").read_text().splitlines():
-            if line.startswith("MemTotal:"):
-                kb = int(line.split()[1])
-                return round(kb / 1024 / 1024, 1)
-    except (OSError, ValueError, IndexError) as exc:
-        logger.debug("Cannot read total RAM: %s", exc)
-    return 0.0
-
-
-def _ram_size_bucket(ram_gb: float) -> str:
-    if ram_gb <= 0:
-        return "unknown"
-    if ram_gb < 16:
-        return "lt16gb"
-    if ram_gb <= 32:
-        return "16_32gb"
-    if ram_gb <= 64:
-        return "33_64gb"
-    if ram_gb <= 128:
-        return "65_128gb"
-    return "129gb_plus"
-
-
-def _read_ram_slot_count() -> int:
-    """Best-effort count of populated DIMM slots from EDAC sysfs."""
-    slot_paths = set(glob.glob("/sys/devices/system/edac/mc/mc*/dimm*"))
-    if not slot_paths:
-        slot_paths = set(glob.glob("/sys/devices/system/edac/mc/mc*/csrow*"))
-    return len(slot_paths) if slot_paths else -1
-
-
-def _ram_slots_bucket(slot_count: int) -> str:
-    if slot_count <= 0:
-        return "unknown"
-    if slot_count == 1:
-        return "single"
-    if slot_count == 2:
-        return "dual"
-    return "quad_or_more"
-
-
-def _read_fan_count() -> int:
-    """Count readable hwmon fan input sensors."""
-    readable = 0
-    for path_str in glob.glob("/sys/class/hwmon/hwmon*/fan*_input"):
-        try:
-            value = int(Path(path_str).read_text().strip())
-            if value >= 0:
-                readable += 1
-        except (OSError, ValueError) as exc:
-            logger.debug("Skipping fan sensor %s: %s", path_str, exc)
-    return readable if readable > 0 else -1
-
-
-def _fan_count_bucket(fan_count: int) -> str:
-    if fan_count < 0:
-        return "unknown"
-    if fan_count == 0:
-        return "0"
-    if fan_count == 1:
-        return "1"
-    return "2_plus"
-
-
-def _read_temperature_c() -> float:
-    """Return the hottest readable temperature sensor in Celsius."""
-    temperatures: list[float] = []
-    candidates = glob.glob("/sys/class/hwmon/hwmon*/temp*_input") + glob.glob(
-        "/sys/class/thermal/thermal_zone*/temp"
-    )
-    for path_str in candidates:
-        try:
-            raw = float(Path(path_str).read_text().strip())
-            # Linux thermal and hwmon sensors usually report millidegrees C.
-            temperatures.append(raw / 1000 if raw > 1000 else raw)
-        except (OSError, ValueError) as exc:
-            logger.debug("Skipping temperature sensor %s: %s", path_str, exc)
-    if not temperatures:
-        return 0.0
-    return round(max(temperatures), 1)
-
-
-def _temperature_state(temp_c: float) -> str:
-    if temp_c <= 0:
-        return "unknown"
-    if temp_c < 50:
-        return "cool"
-    if temp_c <= 75:
-        return "normal"
-    return "hot"
-
-
-def _one_hot_features(values: dict[str, str]) -> dict[str, int]:
-    encoded: dict[str, int] = {}
-    for source, category_map in HARDWARE_ONE_HOT_CATEGORIES.items():
-        value = values.get(source, "unknown")
-        if value not in category_map:
-            value = "unknown" if "unknown" in category_map else "other"
-        for category, field in category_map.items():
-            encoded[field] = int(category == value)
-    return encoded
-
-
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -424,12 +208,6 @@ def collect_hardware_profile() -> HardwareProfile:
             logger.debug("Hardware probe %s failed: %s", fn.__name__, exc)
             return default
 
-    core_count = _safe(_read_core_count, 0)
-    ram_total_gb = _safe(_read_ram_total_gb, 0.0)
-    ram_slot_count = _safe(_read_ram_slot_count, -1)
-    fan_count = _safe(_read_fan_count, -1)
-    temperature_c = _safe(_read_temperature_c, 0.0)
-
     return HardwareProfile(
         arch=_safe(_read_arch, "other"),
         cpu_vendor=_safe(_read_cpu_vendor, "other"),
@@ -437,16 +215,6 @@ def collect_hardware_profile() -> HardwareProfile:
         cpu_governor=_safe(_read_cpu_governor, "unknown"),
         numa_node_count=_safe(_read_numa_node_count, 1),
         freq_ratio=_safe(_read_freq_ratio, 0.0),
-        core_count=core_count,
-        core_count_bucket=_core_count_bucket(core_count),
-        ram_total_gb=ram_total_gb,
-        ram_size_bucket=_ram_size_bucket(ram_total_gb),
-        ram_slot_count=ram_slot_count,
-        ram_slots_bucket=_ram_slots_bucket(ram_slot_count),
-        fan_count=fan_count,
-        fan_count_bucket=_fan_count_bucket(fan_count),
-        temperature_c=temperature_c,
-        temp_state=_temperature_state(temperature_c),
     )
 
 
@@ -465,14 +233,6 @@ class HardwareProfiler:
         self._cpu_vendor = _read_cpu_vendor()
         self._tdp_tier = _tdp_tier(_read_tdp_watts())
         self._numa_node_count = _read_numa_node_count()
-        self._core_count = _read_core_count()
-        self._core_count_bucket = _core_count_bucket(self._core_count)
-        self._ram_total_gb = _read_ram_total_gb()
-        self._ram_size_bucket = _ram_size_bucket(self._ram_total_gb)
-        self._ram_slot_count = _read_ram_slot_count()
-        self._ram_slots_bucket = _ram_slots_bucket(self._ram_slot_count)
-        self._fan_count = _read_fan_count()
-        self._fan_count_bucket = _fan_count_bucket(self._fan_count)
 
     def get_interval_features(self) -> dict:
         """Return a flat dict of hardware features for the current interval.
@@ -480,26 +240,11 @@ class HardwareProfiler:
         Static fields are served from the cache established at init time;
         dynamic fields are read fresh each call.
         """
-        governor = _read_cpu_governor()
-        temperature_c = _read_temperature_c()
-        temp_state = _temperature_state(temperature_c)
-        features = {
+        return {
             "hw_arch": self._arch,
             "hw_cpu_vendor": self._cpu_vendor,
             "hw_tdp_tier": self._tdp_tier,
             "hw_numa_node_count": self._numa_node_count,
-            "hw_cpu_governor": governor,
+            "hw_cpu_governor": _read_cpu_governor(),
             "hw_freq_ratio": _read_freq_ratio(),
-            "hw_core_count": self._core_count,
-            "hw_core_count_bucket": self._core_count_bucket,
-            "hw_ram_total_gb": self._ram_total_gb,
-            "hw_ram_size_bucket": self._ram_size_bucket,
-            "hw_ram_slot_count": self._ram_slot_count,
-            "hw_ram_slots_bucket": self._ram_slots_bucket,
-            "hw_fan_count": self._fan_count,
-            "hw_fan_count_bucket": self._fan_count_bucket,
-            "hw_temperature_c": temperature_c,
-            "hw_temp_state": temp_state,
         }
-        features.update(_one_hot_features(features))
-        return features

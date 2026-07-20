@@ -2,9 +2,9 @@
 """Evaluate a saved CVXPY energy model against a new dataset (e.g. from a different node)."""
 
 import argparse
-import pickle
 import sys
 from pathlib import Path
+import pickle
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -71,10 +71,10 @@ def evaluate(preds, interval_energy):
 def print_metrics(metrics):
     print("\n── Evaluation Results ──────────────────────────")
     print(f"  R²                   : {metrics['r2']:.4f}")
-    print(f"  MAE                  : {metrics['mae']:.4f} J")
-    print(f"  RMSE                 : {metrics['rmse']:.4f} J")
-    print(f"  Median AE            : {metrics['median_ae']:.4f} J")
-    print(f"  Mean interval energy : {metrics['mean_energy']:.4f} J")
+    print(f"  MAE                  : {metrics['mae']:.4f} Wh")
+    print(f"  RMSE                 : {metrics['rmse']:.4f} Wh")
+    print(f"  Median AE            : {metrics['median_ae']:.4f} Wh")
+    print(f"  Mean interval energy : {metrics['mean_energy']:.4f} Wh")
     print(f"  MAE  (% of mean)     : {metrics['mae_pct']:.2f}%")
     print(f"  RMSE (% of mean)     : {metrics['rmse_pct']:.2f}%")
     print("────────────────────────────────────────────────\n")
@@ -91,7 +91,7 @@ def plot_results(df_eval, output_prefix):
         linewidth=1.5,
     )
     ax.set_xlabel("Time")
-    ax.set_ylabel("Interval Energy (J)")
+    ax.set_ylabel("Interval Energy (Wh)")
     ax.set_title("Actual vs. Predicted Interval Energy (cross-node)")
     ax.legend()
     plt.tight_layout()
@@ -103,7 +103,7 @@ def plot_results(df_eval, output_prefix):
     ax.plot(df_eval["_time"], errors, linewidth=1.0)
     ax.axhline(0, color="gray", linestyle="--")
     ax.set_xlabel("Time")
-    ax.set_ylabel("Error (J)")
+    ax.set_ylabel("Error (Wh)")
     ax.set_title("Prediction Error Over Time")
     plt.tight_layout()
     plt.savefig(f"{output_prefix}_error_over_time.png", dpi=150)
@@ -132,7 +132,7 @@ def main():
 
     print(f"Model loaded from : {args.model}")
     print(f"Features          : {features}")
-    print(f"Static energy     : {static_energy:.4f} J")
+    print(f"Static energy     : {static_energy:.4f} Wh")
     print(f"Weights           : { {f: f'{w:.4e}' for f, w in zip(features, weights)} }")
 
     df_raw = pd.read_parquet(args.data)

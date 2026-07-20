@@ -15,7 +15,6 @@ spec:
       serviceAccountName: default
       hostPID: true
       hostNetwork: true
-      dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: energy-monitor
           image: fomopi/energy-monitor:latest

@@ -18,96 +18,18 @@ for _extra_path in (_REPO_ROOT / "monitor", _REPO_ROOT):
 
 from database.DBClient import DBClient  # noqa: E402
 
-HARDWARE_ONE_HOT_CATEGORIES = {
-    "hw_arch": {
-        "x86_64": "hw_arch_x86_64",
-        "arm64": "hw_arch_arm64",
-        "riscv64": "hw_arch_riscv64",
-        "other": "hw_arch_other",
-    },
-    "hw_cpu_vendor": {
-        "intel": "hw_cpu_vendor_intel",
-        "amd": "hw_cpu_vendor_amd",
-        "arm": "hw_cpu_vendor_arm",
-        "apple": "hw_cpu_vendor_apple",
-        "other": "hw_cpu_vendor_other",
-    },
-    "hw_tdp_tier": {
-        "low": "hw_tdp_tier_low",
-        "mid": "hw_tdp_tier_mid",
-        "high": "hw_tdp_tier_high",
-        "unknown": "hw_tdp_tier_unknown",
-    },
-    "hw_cpu_governor": {
-        "performance": "hw_cpu_governor_performance",
-        "powersave": "hw_cpu_governor_powersave",
-        "schedutil": "hw_cpu_governor_schedutil",
-        "ondemand": "hw_cpu_governor_ondemand",
-        "unknown": "hw_cpu_governor_unknown",
-    },
-    "hw_core_count_bucket": {
-        "1_4": "hw_cores_1_4",
-        "5_8": "hw_cores_5_8",
-        "9_16": "hw_cores_9_16",
-        "17_32": "hw_cores_17_32",
-        "33_plus": "hw_cores_33_plus",
-        "unknown": "hw_cores_unknown",
-    },
-    "hw_ram_size_bucket": {
-        "lt16gb": "hw_ram_lt16gb",
-        "16_32gb": "hw_ram_16_32gb",
-        "33_64gb": "hw_ram_33_64gb",
-        "65_128gb": "hw_ram_65_128gb",
-        "129gb_plus": "hw_ram_129gb_plus",
-        "unknown": "hw_ram_unknown",
-    },
-    "hw_ram_slots_bucket": {
-        "single": "hw_ram_slots_single",
-        "dual": "hw_ram_slots_dual",
-        "quad_or_more": "hw_ram_slots_quad_or_more",
-        "unknown": "hw_ram_slots_unknown",
-    },
-    "hw_fan_count_bucket": {
-        "0": "hw_fans_0",
-        "1": "hw_fans_1",
-        "2_plus": "hw_fans_2_plus",
-        "unknown": "hw_fans_unknown",
-    },
-    "hw_temp_state": {
-        "cool": "hw_temp_cool",
-        "normal": "hw_temp_normal",
-        "hot": "hw_temp_hot",
-        "unknown": "hw_temp_unknown",
-    },
-}
-
-
 # A .env discovered from the working directory upward is loaded at import time;
 # an explicit --env-file (resolved in __main__) can override it.
 load_dotenv()
 
 
-def _load_data_compat(
-    client,
-    start,
-    stop=None,
-    aggregate_every=None,
-    field_batch_size=None,
-    query_slice_seconds=None,
-    raw_query_mode=None,
-):
+def _load_data_compat(client, start, stop=None, aggregate_every=None):
     """Call DBClient.load_data with backward-compatible signatures."""
     kwargs = {
         "start": start,
         "stop": stop,
         "aggregate_every": aggregate_every,
     }
-    if field_batch_size is not None:
-        kwargs["field_batch_size"] = field_batch_size
-    if query_slice_seconds is not None:
-        kwargs["query_slice_seconds"] = query_slice_seconds
-    if raw_query_mode is not None:
-        kwargs["raw_query_mode"] = raw_query_mode
     if hasattr(DBClient, "DEFAULT_TAG_COLUMNS"):
         kwargs["tag_columns"] = DBClient.DEFAULT_TAG_COLUMNS
 
@@ -118,31 +40,7 @@ def _load_data_compat(
         return client.load_data()
 
 
-def add_hardware_one_hot_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Add numeric one-hot hardware columns from low-cardinality hardware tags."""
-    if df.empty:
-        return df
-
-    encoded = df.copy()
-    for source_column, category_map in HARDWARE_ONE_HOT_CATEGORIES.items():
-        if source_column not in encoded.columns:
-            continue
-        values = encoded[source_column].fillna("unknown").astype(str)
-        for category, output_column in category_map.items():
-            encoded[output_column] = (values == category).astype(int)
-    return encoded
-
-
-def load_dataset(
-    client,
-    level,
-    start,
-    stop=None,
-    aggregate_every=None,
-    field_batch_size=None,
-    query_slice_seconds=None,
-    raw_query_mode=None,
-):
+def load_dataset(client, level, start, stop=None, aggregate_every=None):
     if level == "process":
         # Fetch numeric fields normally (float cast + aggregation) when supported.
         df = _load_data_compat(
@@ -150,9 +48,6 @@ def load_dataset(
             start=start,
             stop=stop,
             aggregate_every=aggregate_every,
-            field_batch_size=field_batch_size,
-            query_slice_seconds=query_slice_seconds,
-            raw_query_mode=raw_query_mode,
         )
 
         # cmdline, exe, cwd, cgroup are string fields — merge only when API exists.
@@ -257,8 +152,8 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--aggregate-every",
-        default=None,
-        help="Optional Flux aggregate window, for example 1s or 5s. Omit this for raw process-interval exports used by estimator training.",
+        default="1s",
+        help="Optional aggregate window passed to Flux, for example 1s or 5s",
     )
     parser.add_argument(
         "--output",
@@ -270,24 +165,6 @@ if __name__ == "__main__":
         type=int,
         default=30,
         help="Split the time range into chunks of this many minutes to avoid query timeouts. Default: 30.",
-    )
-    parser.add_argument(
-        "--field-batch-size",
-        type=int,
-        default=3,
-        help="For raw process exports, query this many fields at a time and merge locally. Exports all fields; lower values reduce Influx response size, higher values reduce query count. Default: 3.",
-    )
-    parser.add_argument(
-        "--query-slice-seconds",
-        type=int,
-        default=60,
-        help="For raw process exports, internally page each chunk into time slices of this many seconds. Exports all timestamps; lower values reduce each Influx response size. Default: 60.",
-    )
-    parser.add_argument(
-        "--raw-query-mode",
-        choices=["time_pivot", "field_batch"],
-        default="time_pivot",
-        help="Raw process export strategy. time_pivot queries all fields per time slice using Flux pivot; field_batch queries a few fields at a time and pivots locally. Default: time_pivot.",
     )
 
     args = parser.parse_args()
@@ -357,9 +234,6 @@ if __name__ == "__main__":
             start=args.start,
             stop=args.stop,
             aggregate_every=args.aggregate_every,
-            field_batch_size=args.field_batch_size,
-            query_slice_seconds=args.query_slice_seconds,
-            raw_query_mode=args.raw_query_mode,
         )
         chunks = [df]
     else:
@@ -386,9 +260,6 @@ if __name__ == "__main__":
                 start=start_str,
                 stop=stop_str,
                 aggregate_every=args.aggregate_every,
-                field_batch_size=args.field_batch_size,
-                query_slice_seconds=args.query_slice_seconds,
-                raw_query_mode=args.raw_query_mode,
             )
             print(f"  → {len(chunk_df)} rows", flush=True)
             if not chunk_df.empty:
@@ -396,7 +267,6 @@ if __name__ == "__main__":
             chunk_start = chunk_end
 
     df = pd.concat(chunks, ignore_index=True) if chunks else pd.DataFrame()
-    df = add_hardware_one_hot_features(df)
 
     print(f"\nLoaded {len(df)} rows from InfluxDB for level={args.level}")
 
