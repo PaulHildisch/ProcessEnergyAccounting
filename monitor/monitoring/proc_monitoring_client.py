@@ -1,7 +1,12 @@
 import ctypes
+import errno
 import logging
 import os
+import re
+import resource
 import struct
+import subprocess
+from dataclasses import dataclass
 
 PERF_TYPE_HARDWARE = 0
 PERF_COUNT_HW_INSTRUCTIONS = 1
@@ -12,6 +17,7 @@ PERF_COUNT_HW_CPU_CYCLES = 0
 # Any model trained before this fix used the wrong counters for those two
 # features. Correct values per include/uapi/linux/perf_event.h:
 PERF_COUNT_HW_BRANCH_INSTRUCTIONS = 4  # was 5 (BRANCH_MISSES)
+PERF_COUNT_HW_CACHE_REFERENCES = 2
 PERF_COUNT_HW_CACHE_MISSES = 3  # was 9 (REF_CPU_CYCLES)
 
 # Additional generalized hardware counters (added).
@@ -93,7 +99,7 @@ def _read_cpuinfo():
     return vendor, flags
 
 
-def _raw_perf_config(event, umask):
+def _raw_perf_config(event: int, umask: int) -> int:
     return (umask << 8) | event
 
 
@@ -146,17 +152,47 @@ def read_counter(fd):
     return struct.unpack("Q", os.read(fd, 8))[0]
 
 
+@dataclass(frozen=True)
+class PerfEventSpec:
+    metric_name: str
+    event_type: int
+    config: int
+    perf_names: tuple[str, ...]
+
+
+def _spec(metric_name, event_type, config, *perf_names):
+    return PerfEventSpec(
+        metric_name, event_type, config, tuple(perf_names or (metric_name,))
+    )
+
+
 ALL_PERF_EVENT_SPECS = [
-    ("instructions", PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTRUCTIONS),
-    ("cycles", PERF_TYPE_HARDWARE, PERF_COUNT_HW_CPU_CYCLES),
-    ("branch_instructions", PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_INSTRUCTIONS),
-    ("cache_misses", PERF_TYPE_HARDWARE, PERF_COUNT_HW_CACHE_MISSES),
-    (
+    _spec(
+        "instructions", PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTRUCTIONS, "instructions"
+    ),
+    _spec("cycles", PERF_TYPE_HARDWARE, PERF_COUNT_HW_CPU_CYCLES, "cycles"),
+    _spec(
+        "cache_references",
+        PERF_TYPE_HARDWARE,
+        PERF_COUNT_HW_CACHE_REFERENCES,
+        "cache-references",
+    ),
+    _spec(
+        "branch_instructions",
+        PERF_TYPE_HARDWARE,
+        PERF_COUNT_HW_BRANCH_INSTRUCTIONS,
+        "branches",
+    ),
+    _spec(
+        "cache_misses", PERF_TYPE_HARDWARE, PERF_COUNT_HW_CACHE_MISSES, "cache-misses"
+    ),
+    _spec(
         "stalled_cycles_backend",
         PERF_TYPE_HARDWARE,
         PERF_COUNT_HW_STALLED_CYCLES_BACKEND,
+        "stalled-cycles-backend",
     ),
-    (
+    _spec(
         "llc_load_misses",
         PERF_TYPE_HW_CACHE,
         hw_cache_config(
@@ -164,8 +200,9 @@ ALL_PERF_EVENT_SPECS = [
             PERF_COUNT_HW_CACHE_OP_READ,
             PERF_COUNT_HW_CACHE_RESULT_MISS,
         ),
+        "LLC-load-misses",
     ),
-    (
+    _spec(
         "llc_store_misses",
         PERF_TYPE_HW_CACHE,
         hw_cache_config(
@@ -173,15 +210,24 @@ ALL_PERF_EVENT_SPECS = [
             PERF_COUNT_HW_CACHE_OP_WRITE,
             PERF_COUNT_HW_CACHE_RESULT_MISS,
         ),
+        "LLC-store-misses",
     ),
-    (
+    _spec(
         "stalled_cycles_frontend",
         PERF_TYPE_HARDWARE,
         PERF_COUNT_HW_STALLED_CYCLES_FRONTEND,
+        "stalled-cycles-frontend",
     ),
-    ("branch_misses", PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_MISSES),
-    ("ref_cpu_cycles", PERF_TYPE_HARDWARE, PERF_COUNT_HW_REF_CPU_CYCLES),
-    (
+    _spec(
+        "branch_misses",
+        PERF_TYPE_HARDWARE,
+        PERF_COUNT_HW_BRANCH_MISSES,
+        "branch-misses",
+    ),
+    _spec(
+        "ref_cpu_cycles", PERF_TYPE_HARDWARE, PERF_COUNT_HW_REF_CPU_CYCLES, "ref-cycles"
+    ),
+    _spec(
         "l1d_load_misses",
         PERF_TYPE_HW_CACHE,
         hw_cache_config(
@@ -189,8 +235,9 @@ ALL_PERF_EVENT_SPECS = [
             PERF_COUNT_HW_CACHE_OP_READ,
             PERF_COUNT_HW_CACHE_RESULT_MISS,
         ),
+        "L1-dcache-load-misses",
     ),
-    (
+    _spec(
         "dtlb_load_misses",
         PERF_TYPE_HW_CACHE,
         hw_cache_config(
@@ -198,8 +245,9 @@ ALL_PERF_EVENT_SPECS = [
             PERF_COUNT_HW_CACHE_OP_READ,
             PERF_COUNT_HW_CACHE_RESULT_MISS,
         ),
+        "dTLB-load-misses",
     ),
-    (
+    _spec(
         "dtlb_store_misses",
         PERF_TYPE_HW_CACHE,
         hw_cache_config(
@@ -207,8 +255,9 @@ ALL_PERF_EVENT_SPECS = [
             PERF_COUNT_HW_CACHE_OP_WRITE,
             PERF_COUNT_HW_CACHE_RESULT_MISS,
         ),
+        "dTLB-store-misses",
     ),
-    (
+    _spec(
         "node_load_misses",
         PERF_TYPE_HW_CACHE,
         hw_cache_config(
@@ -216,20 +265,37 @@ ALL_PERF_EVENT_SPECS = [
             PERF_COUNT_HW_CACHE_OP_READ,
             PERF_COUNT_HW_CACHE_RESULT_MISS,
         ),
+        "node-load-misses",
     ),
-    ("cpu_migrations", PERF_TYPE_SOFTWARE, PERF_COUNT_SW_CPU_MIGRATIONS),
-    ("page_faults_min", PERF_TYPE_SOFTWARE, PERF_COUNT_SW_PAGE_FAULTS_MIN),
-    ("page_faults_maj", PERF_TYPE_SOFTWARE, PERF_COUNT_SW_PAGE_FAULTS_MAJ),
+    _spec(
+        "cpu_migrations",
+        PERF_TYPE_SOFTWARE,
+        PERF_COUNT_SW_CPU_MIGRATIONS,
+        "cpu-migrations",
+    ),
+    _spec(
+        "page_faults_min",
+        PERF_TYPE_SOFTWARE,
+        PERF_COUNT_SW_PAGE_FAULTS_MIN,
+        "minor-faults",
+    ),
+    _spec(
+        "page_faults_maj",
+        PERF_TYPE_SOFTWARE,
+        PERF_COUNT_SW_PAGE_FAULTS_MAJ,
+        "major-faults",
+    ),
 ]
 
 ALL_PERF_EVENT_SPECS += [
-    (name, PERF_TYPE_RAW, config) for name, config in FP_ARITH_EVENTS.items()
+    _spec(name, PERF_TYPE_RAW, config, name) for name, config in FP_ARITH_EVENTS.items()
 ]
 
 PERF_FEATURE_ALIASES = {
     "delta_instructions": "instructions",
     "delta_cycles": "cycles",
     "delta_branch_instructions": "branch_instructions",
+    "delta_cache_references": "cache_references",
     "delta_cache_misses": "cache_misses",
     "delta_stalled_cycles_backend": "stalled_cycles_backend",
     "delta_llc_load_misses": "llc_load_misses",
@@ -250,50 +316,207 @@ PERF_FEATURE_ALIASES.update({f"delta_{name}": name for name in FP_ARITH_EVENTS})
 DEFAULT_PERF_EVENT_NAMES = {
     "instructions",
     "cycles",
-    "branch_instructions",
+    "cache_references",
     "cache_misses",
+    "branch_instructions",
+    "branch_misses",
+    "dtlb_load_misses",
 }
-MAX_OPEN_PERF_FDS = int(os.getenv("MAX_OPEN_PERF_FDS", "512"))
+COMMON_SAFE_PERF_EVENT_NAMES = DEFAULT_PERF_EVENT_NAMES | {
+    "dtlb_store_misses",
+    "stalled_cycles_frontend",
+    "stalled_cycles_backend",
+}
+ALL_PERF_EVENT_NAMES = tuple(spec.metric_name for spec in ALL_PERF_EVENT_SPECS)
+EVENT_SPEC_BY_NAME = {spec.metric_name: spec for spec in ALL_PERF_EVENT_SPECS}
+MAX_OPEN_PERF_FDS = int(os.getenv("MAX_OPEN_PERF_FDS", "8192"))
+PERF_FD_RLIMIT_RESERVE = int(os.getenv("PERF_FD_RLIMIT_RESERVE", "256"))
+
+PERF_EVENT_FALLBACKS = {
+    "llc_load_misses": ("cache_misses",),
+    "dtlb_store_misses": ("dtlb_load_misses",),
+    "node_load_misses": (),
+    "llc_store_misses": (),
+}
+PERF_NATIVE_NAME_ALIASES = {
+    perf_name.lower(): spec.metric_name
+    for spec in ALL_PERF_EVENT_SPECS
+    for perf_name in spec.perf_names
+}
+PERF_NATIVE_NAME_ALIASES.update(
+    {
+        "stalled_cycles_backend": "stalled_cycles_backend",
+        "stalled-cycles-backend": "stalled_cycles_backend",
+        "stalled_cycles_frontend": "stalled_cycles_frontend",
+        "stalled-cycles-frontend": "stalled_cycles_frontend",
+        "dtlb_load_misses": "dtlb_load_misses",
+        "dtlb-load-misses": "dtlb_load_misses",
+        "dtlb_store_misses": "dtlb_store_misses",
+        "dtlb-store-misses": "dtlb_store_misses",
+        "llc_load_misses": "llc_load_misses",
+        "llc-load-misses": "llc_load_misses",
+        "llc_store_misses": "llc_store_misses",
+        "llc-store-misses": "llc_store_misses",
+        "node_load_misses": "node_load_misses",
+        "node-load-misses": "node_load_misses",
+        "branches": "branch_instructions",
+        "branch-instructions": "branch_instructions",
+    }
+)
+_PERF_LIST_TOKEN_RE = re.compile(r"[A-Za-z0-9_.:-]+")
+
+
+def probe_available_perf_events():
+    try:
+        completed = subprocess.run(
+            ["perf", "list"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        logging.warning(
+            "Could not probe perf events with 'perf list': %s. Falling back to configured perf_event_open attempts.",
+            exc,
+        )
+        return None
+
+    output = f"{completed.stdout}\n{completed.stderr}"
+    if completed.returncode != 0 and not output.strip():
+        logging.warning(
+            "Could not probe perf events with 'perf list' (exit=%s). Falling back to configured perf_event_open attempts.",
+            completed.returncode,
+        )
+        return None
+
+    available = {token.lower() for token in _PERF_LIST_TOKEN_RE.findall(output)}
+    logging.info("Probed %s perf event names from 'perf list'.", len(available))
+    return available
+
+
+def _perf_name_available(spec, available_perf_events):
+    if available_perf_events is None:
+        return True
+    return any(
+        perf_name.lower() in available_perf_events for perf_name in spec.perf_names
+    )
+
+
+def _with_metric_name(spec, metric_name):
+    return PerfEventSpec(metric_name, spec.event_type, spec.config, spec.perf_names)
+
+
+def get_effective_max_open_perf_fds():
+    try:
+        soft_limit, _hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
+    except (OSError, ValueError):
+        return MAX_OPEN_PERF_FDS
+
+    if soft_limit == resource.RLIM_INFINITY:
+        return MAX_OPEN_PERF_FDS
+
+    rlimit_budget = max(int(soft_limit) - PERF_FD_RLIMIT_RESERVE, 0)
+    return min(MAX_OPEN_PERF_FDS, rlimit_budget)
+
+
+def select_supported_perf_event_specs(wanted_names):
+    available_perf_events = probe_available_perf_events()
+    selected = []
+
+    for name in sorted(wanted_names):
+        spec = EVENT_SPEC_BY_NAME.get(name)
+        if spec is None:
+            continue
+
+        if _perf_name_available(spec, available_perf_events):
+            selected.append(spec)
+            continue
+
+        fallback_spec = None
+        fallback_name = None
+        for candidate in PERF_EVENT_FALLBACKS.get(name, ()):
+            candidate_spec = EVENT_SPEC_BY_NAME.get(candidate)
+            if candidate_spec and _perf_name_available(
+                candidate_spec, available_perf_events
+            ):
+                fallback_name = candidate
+                fallback_spec = _with_metric_name(candidate_spec, name)
+                break
+
+        if fallback_spec is not None:
+            selected.append(fallback_spec)
+            logging.warning(
+                "Perf event '%s' is not available on this host; using fallback '%s'.",
+                name,
+                fallback_name,
+            )
+        else:
+            logging.warning(
+                "Perf event '%s' is not available on this host and has no supported fallback; reporting it as 0/absent.",
+                name,
+            )
+
+    return selected
 
 
 class PersistentPerfCounters:
     def __init__(self):
         self.pid_to_fds = {}
         self.failed_events = set()
+        self.failed_event_names_warned = set()
+        self.fd_limit_warned = False
+        self.max_open_perf_fds = get_effective_max_open_perf_fds()
         self.event_specs = [
-            spec for spec in ALL_PERF_EVENT_SPECS if spec[0] in DEFAULT_PERF_EVENT_NAMES
+            spec
+            for spec in ALL_PERF_EVENT_SPECS
+            if spec.metric_name in DEFAULT_PERF_EVENT_NAMES
         ]
 
-    def configure(self, model_features=None):
-        if model_features:
-            wanted_names = {
-                PERF_FEATURE_ALIASES[feature]
-                for feature in model_features
-                if feature in PERF_FEATURE_ALIASES
-            }
-            self.event_specs = [
-                spec for spec in ALL_PERF_EVENT_SPECS if spec[0] in wanted_names
-            ]
-        else:
-            self.event_specs = [
-                spec
-                for spec in ALL_PERF_EVENT_SPECS
-                if spec[0] in DEFAULT_PERF_EVENT_NAMES
-            ]
+    def configure(self, model_features=None, perf_events=None):
+        wanted_names = resolve_perf_event_names(model_features, perf_events)
+        self.event_specs = select_supported_perf_event_specs(wanted_names)
+        self.fd_limit_warned = False
+        self.max_open_perf_fds = get_effective_max_open_perf_fds()
+        soft_limit, _hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
+        logging.info(
+            "Configured perf events (%s, MAX_OPEN_PERF_FDS=%s, effective_perf_fd_cap=%s, RLIMIT_NOFILE=%s): %s",
+            len(self.event_specs),
+            MAX_OPEN_PERF_FDS,
+            self.max_open_perf_fds,
+            soft_limit,
+            ", ".join(spec.metric_name for spec in self.event_specs) or "<none>",
+        )
         self.close()
 
     def read_pid(self, pid):
         results = {}
         pid_fds = self.pid_to_fds.setdefault(pid, {})
 
-        for name, event_type, config in self.event_specs:
+        for spec in self.event_specs:
+            name = spec.metric_name
             fd = pid_fds.get(name)
             if fd is None and (pid, name) not in self.failed_events:
-                if self._open_fd_count() >= MAX_OPEN_PERF_FDS:
+                if self._open_fd_count() >= self.max_open_perf_fds:
+                    self._warn_fd_limit_reached()
                     results[name] = None
                     continue
-                fd = self._open(pid, event_type, config)
+                fd = self._open(pid, spec.event_type, spec.config)
                 if fd == -1:
+                    err = ctypes.get_errno()
+                    if err == errno.EMFILE:
+                        self._warn_fd_limit_reached()
+                        self.max_open_perf_fds = self._open_fd_count()
+                    elif name not in self.failed_event_names_warned:
+                        logging.warning(
+                            "Failed to open perf event '%s' for pid=%s: errno=%s (%s). "
+                            "This counter will report as 0 where unavailable.",
+                            name,
+                            pid,
+                            err,
+                            os.strerror(err) if err else "unknown",
+                        )
+                        self.failed_event_names_warned.add(name)
                     self.failed_events.add((pid, name))
                     results[name] = None
                     continue
@@ -333,9 +556,27 @@ class PersistentPerfCounters:
                 self._close_fd(fd)
         self.pid_to_fds.clear()
         self.failed_events.clear()
+        self.failed_event_names_warned.clear()
 
     def _open_fd_count(self):
         return sum(len(pid_fds) for pid_fds in self.pid_to_fds.values())
+
+    def _warn_fd_limit_reached(self):
+        if self.fd_limit_warned:
+            return
+        soft_limit, hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
+        logging.warning(
+            "Perf FD limit reached (open_perf_fds=%s, effective_perf_fd_cap=%s, "
+            "MAX_OPEN_PERF_FDS=%s, RLIMIT_NOFILE soft/hard=%s/%s). Some PMU metrics "
+            "will be reported as 0. Raise the OS nofile limit with prlimit/ulimit, "
+            "increase MAX_OPEN_PERF_FDS if needed, or reduce --perf-events.",
+            self._open_fd_count(),
+            self.max_open_perf_fds,
+            MAX_OPEN_PERF_FDS,
+            soft_limit,
+            hard_limit,
+        )
+        self.fd_limit_warned = True
 
     @staticmethod
     def _open(pid, event_type, config):
@@ -356,8 +597,57 @@ class PersistentPerfCounters:
 _PERF_COUNTERS = PersistentPerfCounters()
 
 
-def configure_pmu_metrics(model_features=None):
-    _PERF_COUNTERS.configure(model_features)
+def resolve_perf_event_names(model_features=None, perf_events=None):
+    requested = _parse_perf_events(perf_events)
+
+    if requested == ["no"]:
+        return set()
+
+    if not requested or requested == ["auto"]:
+        requested = ["model"] if model_features else ["default"]
+
+    names = set()
+    for item in requested:
+        if item == "all":
+            names.update(ALL_PERF_EVENT_NAMES)
+        elif item == "default":
+            names.update(COMMON_SAFE_PERF_EVENT_NAMES)
+        elif item == "no":
+            continue
+        elif item == "model":
+            names.update(
+                PERF_FEATURE_ALIASES[feature]
+                for feature in (model_features or [])
+                if feature in PERF_FEATURE_ALIASES
+            )
+        else:
+            event_name = PERF_FEATURE_ALIASES.get(
+                item, PERF_NATIVE_NAME_ALIASES.get(item, item)
+            )
+            if event_name in EVENT_SPEC_BY_NAME:
+                names.add(event_name)
+            else:
+                logging.warning("Ignoring unknown perf event/feature: %s", item)
+
+    if not names and "no" not in requested:
+        names.update(COMMON_SAFE_PERF_EVENT_NAMES)
+    return names
+
+
+def _parse_perf_events(perf_events):
+    if perf_events is None:
+        return []
+    if isinstance(perf_events, str):
+        return [
+            item.strip().lower()
+            for item in perf_events.replace(",", " ").split()
+            if item.strip()
+        ]
+    return [str(item).strip().lower() for item in perf_events if str(item).strip()]
+
+
+def configure_pmu_metrics(model_features=None, perf_events=None):
+    _PERF_COUNTERS.configure(model_features, perf_events)
 
 
 def get_pmu_metrics(pid):
@@ -395,11 +685,12 @@ def get_cpu_usage(pid):
         return None
 
 
-def get_all_metrics(pid):
+def get_all_metrics(pid, include_perf=True):
     metrics = {}
-    pmu = get_pmu_metrics(pid)
-    if pmu:
-        metrics.update(pmu)
+    if include_perf:
+        pmu = get_pmu_metrics(pid)
+        if pmu:
+            metrics.update(pmu)
     mem = get_memory_usage(pid)
     if mem is not None:
         metrics["memory_rss_bytes"] = mem

@@ -6,10 +6,38 @@ import threading
 from typing import Any, cast
 
 import pandas as pd
+from accumulation.cgroups import CgroupV2
 from kubernetes import client, config, watch
 from tabulate import tabulate
 
-from accumulation.cgroups import CgroupV2
+PERF_COUNTER_KEYS = [
+    "delta_instructions",
+    "delta_cycles",
+    "delta_branch_instructions",
+    "delta_cache_references",
+    "delta_cache_misses",
+    "delta_stalled_cycles_backend",
+    "delta_llc_load_misses",
+    "delta_llc_store_misses",
+    "delta_cpu_migrations",
+    "delta_page_faults_min",
+    "delta_page_faults_maj",
+    "delta_stalled_cycles_frontend",
+    "delta_branch_misses",
+    "delta_ref_cpu_cycles",
+    "delta_l1d_load_misses",
+    "delta_dtlb_load_misses",
+    "delta_dtlb_store_misses",
+    "delta_node_load_misses",
+    "delta_fp_scalar",
+    "delta_fp_128b_packed",
+    "delta_fp_256b_packed",
+    "delta_fp_512b_packed",
+    "delta_fp_add_sub",
+    "delta_fp_mult",
+    "delta_fp_div",
+    "delta_fp_mac",
+]
 
 
 class K8sManager:
@@ -251,7 +279,14 @@ class K8sManager:
                             "IO(bytes)": m.get("delta_io_bytes", 0),
                             "Net(bytes)": m.get("delta_net_send_bytes", 0),
                             "Syscalls": m.get("syscall_count", 0),
-                            "CacheMiss": m.get("cache_misses", 0),
+                            "Instr": m.get("delta_instructions", 0),
+                            "Cycles": m.get("delta_cycles", 0),
+                            "BranchInstr": m.get("delta_branch_instructions", 0),
+                            "CacheMiss": m.get("delta_cache_misses", 0),
+                            "BranchMiss": m.get("delta_branch_misses", 0),
+                            "L1DMiss": m.get("delta_l1d_load_misses", 0),
+                            "LLCLoadMiss": m.get("delta_llc_load_misses", 0),
+                            "RefCycles": m.get("delta_ref_cpu_cycles", 0),
                         }
                     )
                 logging.info(
@@ -261,6 +296,7 @@ class K8sManager:
                 logging.info("  [SUMMED METRICS]")
                 for k, v in summed.items():
                     logging.info(f"    {k:20}: {v}")
+                self._log_perf_counter_summary(summed)
 
                 validation = {}
                 for k in summed.keys():
@@ -300,11 +336,16 @@ class K8sManager:
                     k: v for k, v in deltas[pid].items() if k not in exclude_keys
                 }
 
-                # Flatten syscall class deltas so pod-level sums keep these features.
+                # Flatten nested deltas so pod-level sums keep these features.
                 syscall_class_deltas = filtered.pop("syscall_class_deltas", {}) or {}
                 if isinstance(syscall_class_deltas, dict):
                     for cls, count in syscall_class_deltas.items():
                         filtered[f"syscall_class_{cls}"] = count
+
+                fp_op_deltas = filtered.pop("fp_op_deltas", {}) or {}
+                if isinstance(fp_op_deltas, dict):
+                    for name, count in fp_op_deltas.items():
+                        filtered[f"delta_{name}"] = count
 
                 # Add delta_* aliases used by model artifacts.
                 if "instructions" in filtered:
@@ -326,3 +367,9 @@ class K8sManager:
             summed_metrics = {}
         self.pod_container_to_pids_to_metrics_summed[container] = summed_metrics
         return self.pod_container_to_pids_to_metrics_summed
+
+    @staticmethod
+    def _log_perf_counter_summary(summed):
+        logging.info("  [PERF COUNTERS]")
+        for key in PERF_COUNTER_KEYS:
+            logging.info(f"    {key:32}: {summed.get(key, 0)}")

@@ -191,13 +191,13 @@ files = [
 
 [[package]]
 name = "anyio"
-version = "4.13.0"
+version = "4.14.0"
 description = "High-level concurrency and networking framework on top of asyncio or Trio"
 optional = false
 python-versions = ">=3.10"
 files = [
-    {file = "anyio-4.13.0-py3-none-any.whl", hash = "sha256:08b310f9e24a9594186fd75b4f73f4a4152069e3853f1ed8bfbf58369f4ad708"},
-    {file = "anyio-4.13.0.tar.gz", hash = "sha256:334b70e641fd2221c1505b3890c69882fe4a2df910cba14d97019b90b24439dc"},
+    {file = "anyio-4.14.0-py3-none-any.whl", hash = "sha256:dd9b7a2a9799ed6552fde617b2c5df02b7fdd7d88392fc48101e51bae46164d9"},
+    {file = "anyio-4.14.0.tar.gz", hash = "sha256:b47c1f9ccf73e67021df785332508f99379c68fa7d0684e8e3492cb1d4b23f89"},
 ]
 
 [package.dependencies]
@@ -235,13 +235,13 @@ files = [
 
 [[package]]
 name = "certifi"
-version = "2026.5.20"
+version = "2026.6.17"
 description = "Python package for providing Mozilla's CA Bundle."
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "certifi-2026.5.20-py3-none-any.whl", hash = "sha256:3c52e209ba0a4ad7aebe60436a4ab349c39e1e602e8c134221e546902ad25897"},
-    {file = "certifi-2026.5.20.tar.gz", hash = "sha256:69dea482ab64caa7b9f6aba1c6bf48bb6a5448d1c0f1b17ab42ad8c763a5344d"},
+    {file = "certifi-2026.6.17-py3-none-any.whl", hash = "sha256:2227dcbaafe0d2f59279d1762ddddc37783ed4354594f194ffc31d20f41fc3db"},
+    {file = "certifi-2026.6.17.tar.gz", hash = "sha256:024c88eeec92ca068db80f02b8b07c9cef7b9fe261d1d535abfd5abd6f6af432"},
 ]
 
 [[package]]
@@ -910,13 +910,13 @@ tests = ["asttokens (>=2.1.0)", "coverage", "coverage-enable-subprocess", "ipyth
 
 [[package]]
 name = "fastapi"
-version = "0.137.1"
+version = "0.137.2"
 description = "FastAPI framework, high performance, easy to learn, fast to code, ready for production"
 optional = false
 python-versions = ">=3.10"
 files = [
-    {file = "fastapi-0.137.1-py3-none-any.whl", hash = "sha256:64f6983c59e45c4b9fdc44e57cb8035c2451ee91ea8e8ec042aca37de7cf6b69"},
-    {file = "fastapi-0.137.1.tar.gz", hash = "sha256:822360704230d9533d8d9475399613525968aa2f0b5bd2a3ccc9f18c88fd541c"},
+    {file = "fastapi-0.137.2-py3-none-any.whl", hash = "sha256:791d36261e916a98b25ac85ee591bc3db159394070f6d3d096d94fb378f60ce2"},
+    {file = "fastapi-0.137.2.tar.gz", hash = "sha256:b9d893bebc97dcfbdcb1917e88a292d062844ea19445a5fa4f7eb28c4baea9e3"},
 ]
 
 [package.dependencies]
@@ -1204,13 +1204,13 @@ files = [
 
 [[package]]
 name = "fsspec"
-version = "2026.4.0"
+version = "2026.6.0"
 description = "File-system specification"
 optional = false
 python-versions = ">=3.10"
 files = [
-    {file = "fsspec-2026.4.0-py3-none-any.whl", hash = "sha256:11ef7bb35dab8a394fde6e608221d5cf3e8499401c249bebaeaad760a1a8dec2"},
-    {file = "fsspec-2026.4.0.tar.gz", hash = "sha256:301d8ac70ae90ef3ad05dcf94d6c3754a097f9b5fe4667d2787aa359ec7df7e4"},
+    {file = "fsspec-2026.6.0-py3-none-any.whl", hash = "sha256:02e0b71817df9b2169dc30a16832045764def1191b43dcff5bb85bdee212d2a1"},
+    {file = "fsspec-2026.6.0.tar.gz", hash = "sha256:f5bac145310fe30e16e1471bd6840b2d990d609e872251d7e674241822abf01a"},
 ]
 
 [package.extras]
@@ -1238,7 +1238,7 @@ smb = ["smbprotocol"]
 ssh = ["paramiko"]
 test = ["aiohttp (!=4.0.0a0,!=4.0.0a1)", "numpy", "pytest", "pytest-asyncio (!=0.22.0)", "pytest-benchmark", "pytest-cov", "pytest-mock", "pytest-recording", "pytest-rerunfailures", "requests"]
 test-downstream = ["aiobotocore (>=2.5.4,<3.0.0)", "dask[dataframe,test]", "moto[server] (>4,<5)", "pytest-timeout", "xarray"]
-test-full = ["adlfs", "aiohttp (!=4.0.0a0,!=4.0.0a1)", "backports-zstd", "cloudpickle", "dask", "distributed", "dropbox", "dropboxdrivefs", "fastparquet", "fusepy", "gcsfs", "jinja2", "kerchunk", "libarchive-c", "lz4", "notebook", "numpy", "ocifs", "pandas (<3.0.0)", "panel", "paramiko", "pyarrow", "pyarrow (>=1)", "pyftpdlib", "pygit2", "pytest", "pytest-asyncio (!=0.22.0)", "pytest-benchmark", "pytest-cov", "pytest-mock", "pytest-recording", "pytest-rerunfailures", "python-snappy", "requests", "smbprotocol", "tqdm", "urllib3", "zarr", "zstandard"]
+test-full = ["adlfs", "aiohttp (!=4.0.0a0,!=4.0.0a1)", "backports-zstd", "cloudpickle", "dask", "distributed", "dropbox", "dropboxdrivefs", "fastparquet", "fusepy", "gcsfs", "jinja2", "kerchunk", "libarchive-c", "lz4", "notebook", "numpy", "ocifs", "pandas (<3.0.0)", "panel", "paramiko", "pyarrow", "pyarrow (>=1)", "pyftpdlib", "pygit2", "pytest", "pytest-asyncio (!=0.22.0)", "pytest-benchmark", "pytest-cov", "pytest-mock", "pytest-recording", "pytest-rerunfailures", "python-snappy", "requests", "smbprotocol", "tqdm", "urllib3", "zarr (<3.2.0)", "zstandard"]
 tqdm = ["tqdm"]
 
 [[package]]

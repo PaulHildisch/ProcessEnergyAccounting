@@ -17,8 +17,7 @@ data:
     --interval 1
     --kubernetes-integration
     --kubeconfig /etc/rancher/k3s/k3s.yaml
-    --model-pkl /app/models/siena06.pkl
     --use-prometheus-exporter
     --exporter-port 9002
     --exporter-addr localhost
-    --exporter-mode process
+    --exporter-mode pod
