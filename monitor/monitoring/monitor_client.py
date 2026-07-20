@@ -11,8 +11,12 @@ from monitoring.proc_monitoring_client import (
 
 
 class MonitoringClient:
-    def __init__(self, model_features=None):
-        configure_pmu_metrics(model_features)
+    def __init__(
+        self, model_features=None, perf_events=None, enable_perf_counters=True
+    ):
+        self.enable_perf_counters = enable_perf_counters
+        if self.enable_perf_counters:
+            configure_pmu_metrics(model_features, perf_events)
         self.bpf_client = BPFMonitoringClient()
 
     def get_process_list(self):
@@ -20,7 +24,9 @@ class MonitoringClient:
         psutil_cpu_times = self.get_all_process_cpu_times()
         ppids = self.get_all_process_ppids()
         for process in process_list:
-            metrics = get_all_metrics(process["pid"])
+            metrics = get_all_metrics(
+                process["pid"], include_perf=self.enable_perf_counters
+            )
             metrics["psutil_cpu_time_ns"] = psutil_cpu_times.get(process["pid"], 0)
             metrics["ppid"] = ppids.get(process["pid"])
             process.update(metrics)

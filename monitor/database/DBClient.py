@@ -1,8 +1,20 @@
+import warnings
+from datetime import datetime, timedelta, timezone
+
 import pandas as pd
 from influxdb_client import InfluxDBClient, Point, WritePrecision
+from influxdb_client.client.warnings import MissingPivotFunction
+from monitoring.hardware_profile import HARDWARE_ONE_HOT_FIELDS, HARDWARE_TAG_DEFAULTS
 
 
 class DBClient:
+    DEFAULT_TAG_COLUMNS = [
+        "container_runtime",
+        "container_name",
+        "pod_name",
+        *HARDWARE_TAG_DEFAULTS.keys(),
+    ]
+
     def __init__(self, url, token, org, bucket):
         # Fall back to the docker-compose defaults so reads/writes keep working
         # when INFLUX_ORG/INFLUX_BUCKET are not supplied via env or CLI.
@@ -44,6 +56,11 @@ class DBClient:
                 .tag("hw_cpu_vendor", d.get("hw_cpu_vendor", "unknown"))
                 .tag("hw_tdp_tier", d.get("hw_tdp_tier", "unknown"))
                 .tag("hw_cpu_governor", d.get("hw_cpu_governor", "unknown"))
+                .tag("hw_core_count_bucket", d.get("hw_core_count_bucket", "unknown"))
+                .tag("hw_ram_size_bucket", d.get("hw_ram_size_bucket", "unknown"))
+                .tag("hw_ram_slots_bucket", d.get("hw_ram_slots_bucket", "unknown"))
+                .tag("hw_fan_count_bucket", d.get("hw_fan_count_bucket", "unknown"))
+                .tag("hw_temp_state", d.get("hw_temp_state", "unknown"))
                 .field("ppid", int(d.get("ppid", -1)))
                 .field("interval", float(interval))
                 # ── existing process counters ──────────────────────────────────
@@ -63,6 +80,9 @@ class DBClient:
                 .field(
                     "delta_branch_instructions",
                     int(d.get("delta_branch_instructions", 0)),
+                )
+                .field(
+                    "delta_cache_references", int(d.get("delta_cache_references", 0))
                 )
                 .field("delta_cache_misses", int(d.get("delta_cache_misses", 0)))
                 .field(
@@ -108,10 +128,18 @@ class DBClient:
                 # ── hardware numeric features ──────────────────────────────────
                 .field("hw_numa_node_count", int(d.get("hw_numa_node_count", 1)))
                 .field("hw_freq_ratio", float(d.get("hw_freq_ratio", 0.0)))
+                .field("hw_core_count", int(d.get("hw_core_count", 0)))
+                .field("hw_ram_total_gb", float(d.get("hw_ram_total_gb", 0.0)))
+                .field("hw_ram_slot_count", int(d.get("hw_ram_slot_count", -1)))
+                .field("hw_fan_count", int(d.get("hw_fan_count", -1)))
+                .field("hw_temperature_c", float(d.get("hw_temperature_c", 0.0)))
                 .time(int(timestamp * 1e9), WritePrecision.NS)
             )
+            for field_name in HARDWARE_ONE_HOT_FIELDS:
+                point = point.field(field_name, int(d.get(field_name, 0)))
             if avg_power is not None:
                 point = point.field("avg_power", float(avg_power))
+            # interval_energy is stored in joules (avg_power_w * interval_seconds).
             if interval_energy is not None:
                 point = point.field("interval_energy", float(interval_energy))
 
@@ -149,50 +177,291 @@ class DBClient:
         except Exception:
             return None, None
 
-    def load_data(self, start="-2h", stop=None, aggregate_every="1s"):
+    def _query_data_frame(self, query):
+        dfs = self.client.query_api().query_data_frame(query, org=self.org)
+        if isinstance(dfs, list):
+            dfs = [d for d in dfs if d is not None and not d.empty]
+            return pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+        return dfs if dfs is not None else pd.DataFrame()
+
+    @staticmethod
+    def _parse_absolute_time(value):
+        if value is None:
+            return None
+        value = str(value).strip()
+        if value.startswith("-"):
+            return None
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+    @staticmethod
+    def _format_flux_time(value):
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    @classmethod
+    def _time_slices(cls, start, stop, slice_seconds):
+        start_dt = cls._parse_absolute_time(start)
+        stop_dt = cls._parse_absolute_time(stop)
+        slice_seconds = int(slice_seconds or 0)
+        if start_dt is None or stop_dt is None or slice_seconds <= 0:
+            yield start, stop
+            return
+
+        delta = timedelta(seconds=slice_seconds)
+        current = start_dt
+        while current < stop_dt:
+            next_stop = min(current + delta, stop_dt)
+            yield cls._format_flux_time(current), cls._format_flux_time(next_stop)
+            current = next_stop
+
+    def _load_process_field_keys(self, start, stop=None):
+        range_args = f"start: {start}"
+        if stop is not None:
+            range_args += f", stop: {stop}"
+        query = f"""
+            import "influxdata/influxdb/schema"
+
+            schema.measurementFieldKeys(
+                bucket: "{self.bucket}",
+                measurement: "process_interval_metrics",
+                {range_args}
+            )
+        """
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", MissingPivotFunction)
+            df = self._query_data_frame(query)
+        if df.empty or "_value" not in df.columns:
+            return []
+        excluded = {"cmdline", "exe", "cwd", "cgroup"}
+        return sorted(
+            field
+            for field in df["_value"].dropna().astype(str).unique()
+            if field not in excluded
+        )
+
+    def load_data(
+        self,
+        start="-2h",
+        stop=None,
+        aggregate_every=None,
+        tag_columns=None,
+        field_batch_size=3,
+        query_slice_seconds=60,
+        raw_query_mode="time_pivot",
+    ):
         # An explicit window (e.g. session-based export) is authoritative; only
         # the default no-argument call falls back to benchmark-marker trimming.
         explicit_window = stop is not None or start != "-2h"
         range_args = f"start: {start}"
         if stop is not None:
             range_args += f", stop: {stop}"
-        query = f"""
-            from(bucket: "{self.bucket}")
-              |> range({range_args})
-              |> filter(fn: (r) =>
-                r._measurement == "process_interval_metrics" and
-                r._field != "cmdline" and
-                r._field != "exe" and
-                r._field != "cwd" and
-                r._field != "cgroup"
-              )
-              |> map(fn: (r) => ({{ r with _value: float(v: r._value) }}))
-              |> aggregateWindow(every: {aggregate_every}, fn: mean, createEmpty: false)
-              |> map(fn: (r) => ({{ r with
-                  container_runtime: if exists r.container_runtime then r.container_runtime else "",
-                  container_name:    if exists r.container_name    then r.container_name    else "",
-                  pod_name:          if exists r.pod_name          then r.pod_name          else ""
-              }}))
-              |> group(columns: ["pid", "process_name", "container_runtime", "container_name", "pod_name"])
-              |> pivot(
-                  rowKey: ["_time", "pid", "process_name", "container_runtime", "container_name", "pod_name"],
-                  columnKey: ["_field"],
-                  valueColumn: "_value"
-              )
-              |> sort(columns: ["_time", "pid"])
-        """
-        dfs = self.client.query_api().query_data_frame(query, org=self.org)
-        if isinstance(dfs, list):
-            dfs = [d for d in dfs if d is not None and not d.empty]
-            df = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
-        else:
-            df = dfs if dfs is not None else pd.DataFrame()
 
-        if df.empty:
-            return df
-        df = df.drop(columns=[c for c in ["result", "table"] if c in df.columns])
-        df["_time"] = pd.to_datetime(df["_time"])
-        df = df.sort_values(["_time", "pid"])
+        tag_defaults = {
+            "container_runtime": "",
+            "container_name": "",
+            "pod_name": "",
+            **HARDWARE_TAG_DEFAULTS,
+        }
+        selected_tag_columns = list(tag_columns or self.DEFAULT_TAG_COLUMNS)
+        tag_map_lines = ",\n                  ".join(
+            f'{column}: if exists r.{column} then r.{column} else "{tag_defaults.get(column, "")}"'
+            for column in selected_tag_columns
+        )
+        pivot_columns = ["_time", "pid", "process_name", *selected_tag_columns]
+        group_columns_flux = ", ".join(
+            f'"{column}"' for column in ["pid", "process_name", *selected_tag_columns]
+        )
+        pivot_columns_flux = ", ".join(f'"{column}"' for column in pivot_columns)
+
+        if aggregate_every:
+            query = f"""
+                from(bucket: "{self.bucket}")
+                  |> range({range_args})
+                  |> filter(fn: (r) =>
+                    r._measurement == "process_interval_metrics" and
+                    r._field != "cmdline" and
+                    r._field != "exe" and
+                    r._field != "cwd" and
+                    r._field != "cgroup"
+                  )
+                  |> map(fn: (r) => ({{ r with _value: float(v: r._value) }}))
+                  |> aggregateWindow(every: {aggregate_every}, fn: mean, createEmpty: false)
+                  |> map(fn: (r) => ({{ r with
+                      {tag_map_lines}
+                  }}))
+                  |> group(columns: [{group_columns_flux}])
+                  |> pivot(
+                      rowKey: [{pivot_columns_flux}],
+                      columnKey: ["_field"],
+                      valueColumn: "_value"
+                  )
+                  |> sort(columns: ["_time", "pid"])
+            """
+            dfs = self.client.query_api().query_data_frame(query, org=self.org)
+            if isinstance(dfs, list):
+                dfs = [d for d in dfs if d is not None and not d.empty]
+                df = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+            else:
+                df = dfs if dfs is not None else pd.DataFrame()
+
+            if df.empty:
+                return df
+            df = df.drop(columns=[c for c in ["result", "table"] if c in df.columns])
+            df["_time"] = pd.to_datetime(df["_time"])
+            df = df.sort_values(["_time", "pid"])
+        else:
+            fields = self._load_process_field_keys(start=start, stop=stop)
+            if not fields:
+                return pd.DataFrame()
+
+            raw_query_mode = str(raw_query_mode or "time_pivot").strip().lower()
+            time_slices = list(self._time_slices(start, stop, query_slice_seconds))
+
+            keep_columns = [
+                "_time",
+                "_field",
+                "_value",
+                "pid",
+                "process_name",
+                *selected_tag_columns,
+            ]
+            keep_columns_flux = ", ".join(f'"{column}"' for column in keep_columns)
+            slice_frames = []
+
+            if raw_query_mode == "time_pivot":
+                for slice_index, (slice_start, slice_stop) in enumerate(
+                    time_slices, start=1
+                ):
+                    slice_range_args = f"start: {slice_start}"
+                    if slice_stop is not None:
+                        slice_range_args += f", stop: {slice_stop}"
+                    print(
+                        "    query page "
+                        f"time {slice_index}/{len(time_slices)} "
+                        f"({slice_start} → {slice_stop}; all fields)",
+                        flush=True,
+                    )
+                    query = f"""
+                        from(bucket: "{self.bucket}")
+                          |> range({slice_range_args})
+                          |> filter(fn: (r) =>
+                            r._measurement == "process_interval_metrics" and
+                            r._field != "cmdline" and
+                            r._field != "exe" and
+                            r._field != "cwd" and
+                            r._field != "cgroup"
+                          )
+                          |> map(fn: (r) => ({{ r with
+                              {tag_map_lines}
+                          }}))
+                          |> pivot(
+                              rowKey: [{pivot_columns_flux}],
+                              columnKey: ["_field"],
+                              valueColumn: "_value"
+                          )
+                    """
+                    slice_df = self._query_data_frame(query)
+                    if slice_df.empty:
+                        continue
+                    slice_df = slice_df.drop(
+                        columns=[
+                            c for c in ["result", "table"] if c in slice_df.columns
+                        ]
+                    )
+                    slice_df["_time"] = pd.to_datetime(slice_df["_time"])
+                    slice_frames.append(slice_df)
+            elif raw_query_mode == "field_batch":
+                field_batch_size = max(1, int(field_batch_size or 1))
+                total_field_batches = (
+                    len(fields) + field_batch_size - 1
+                ) // field_batch_size
+
+                for slice_index, (slice_start, slice_stop) in enumerate(
+                    time_slices, start=1
+                ):
+                    slice_range_args = f"start: {slice_start}"
+                    if slice_stop is not None:
+                        slice_range_args += f", stop: {slice_stop}"
+                    field_frames = []
+
+                    for field_batch_index, offset in enumerate(
+                        range(0, len(fields), field_batch_size), start=1
+                    ):
+                        field_batch = fields[offset : offset + field_batch_size]
+                        print(
+                            "    query page "
+                            f"time {slice_index}/{len(time_slices)} "
+                            f"fields {field_batch_index}/{total_field_batches} "
+                            f"({slice_start} → {slice_stop}; {', '.join(field_batch)})",
+                            flush=True,
+                        )
+                        field_filter_flux = " or ".join(
+                            f'r._field == "{field}"' for field in field_batch
+                        )
+                        query = f"""
+                            from(bucket: "{self.bucket}")
+                              |> range({slice_range_args})
+                              |> filter(fn: (r) =>
+                                r._measurement == "process_interval_metrics" and
+                                ({field_filter_flux})
+                              )
+                              |> keep(columns: [{keep_columns_flux}])
+                        """
+                        with warnings.catch_warnings():
+                            warnings.simplefilter("ignore", MissingPivotFunction)
+                            batch_df = self._query_data_frame(query)
+
+                        if batch_df.empty:
+                            continue
+
+                        batch_df = batch_df.drop(
+                            columns=[
+                                c for c in ["result", "table"] if c in batch_df.columns
+                            ]
+                        )
+                        for column in ["pid", "process_name"]:
+                            if column not in batch_df.columns:
+                                batch_df[column] = ""
+                            else:
+                                batch_df[column] = batch_df[column].fillna("")
+                        for column in selected_tag_columns:
+                            default = tag_defaults.get(column, "")
+                            if column not in batch_df.columns:
+                                batch_df[column] = default
+                            else:
+                                batch_df[column] = batch_df[column].fillna(default)
+
+                        batch_df["_time"] = pd.to_datetime(batch_df["_time"])
+                        batch_df = (
+                            batch_df.groupby([*pivot_columns, "_field"], dropna=False)[
+                                "_value"
+                            ]
+                            .last()
+                            .unstack("_field")
+                            .reset_index()
+                        )
+                        batch_df.columns.name = None
+                        field_frames.append(batch_df)
+
+                    if not field_frames:
+                        continue
+
+                    slice_df = field_frames[0]
+                    for frame in field_frames[1:]:
+                        slice_df = slice_df.merge(frame, on=pivot_columns, how="outer")
+                    slice_frames.append(slice_df)
+            else:
+                raise ValueError(
+                    "raw_query_mode must be 'time_pivot' or 'field_batch', "
+                    f"got {raw_query_mode!r}"
+                )
+
+            if not slice_frames:
+                return pd.DataFrame()
+
+            df = pd.concat(slice_frames, ignore_index=True, sort=False)
+            df = df.sort_values(["_time", "pid"])
 
         if not explicit_window:
             start_marker, end_marker = self.get_benchmark_window()

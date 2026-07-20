@@ -103,6 +103,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="Placeholder flag for future online energy estimation logic (not yet implemented)",
     )
     parser.add_argument(
+        "--perf-events",
+        default=os.getenv("PERF_EVENTS", "auto"),
+        help=(
+            "Perf events to collect: no, auto, default, model, all, or a comma-separated "
+            "list of raw event names / delta_* feature names. Use 'no' to disable perf "
+            "counter collection entirely. Default: env PERF_EVENTS or auto."
+        ),
+    )
+    parser.add_argument(
+        "--hardware-metrics",
+        type=str.lower,
+        choices=["all", "no"],
+        default=os.getenv("HARDWARE_METRICS", "all"),
+        help=(
+            "Hardware metrics to collect: all or no. Use 'no' to disable per-interval "
+            "hardware metric collection. Default: env HARDWARE_METRICS or all."
+        ),
+    )
+    parser.add_argument(
         "--docker-integration",
         action="store_true",
         help="Enable metric aggregation for Docker environments (disabled unless this flag is passed)",

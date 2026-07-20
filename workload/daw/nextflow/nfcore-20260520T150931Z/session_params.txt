@@ -1,0 +1,11 @@
+session_id=nfcore-20260520T150931Z
+repeat=2
+max_cpus=unset
+stress_duration=180
+stress_cpus=32
+idle_min=30
+idle_max=180
+initial_idle=60
+final_idle=60
+backend_profile=docker
+pipeline_profile=test_full

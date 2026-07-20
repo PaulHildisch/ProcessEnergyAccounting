@@ -21,7 +21,7 @@ if str(MODELING_DIR) not in sys.path:
     sys.path.insert(0, str(MODELING_DIR))
 
 try:
-    from plots.cvxpy_estimator_plots import save_estimator_plots
+    from cvxpy_estimator_plots import save_estimator_plots
 
     _PLOTS_AVAILABLE = True
 except ImportError:
@@ -42,6 +42,7 @@ CV_STATIC_GRID = [0.0, 0.001, 0.01, 0.1, 1.0]
 CV_N_SPLITS = 5
 
 TARGET_COLUMN = "interval_energy"
+TARGET_UNIT = "J"
 TIME_COLUMN = "_time"
 TIME_ROUNDING = "1ms"
 TEST_SIZE = 0.2
@@ -87,6 +88,11 @@ def parse_args() -> argparse.Namespace:
         nargs="+",
         required=True,
         help="Source hostname(s) of the dataset. One or more values are allowed.",
+    )
+    parser.add_argument(
+        "--workload-name",
+        required=True,
+        help="Workload name used as a subdirectory under the hostname plot directory.",
     )
     parser.add_argument(
         "--env-file",
@@ -204,8 +210,10 @@ def _compute_static_features(
       - n_processes:  count of active processes per interval — captures OS and
                       scheduling overhead that scales with process count.
 
-    Additional columns from cfg.static_features are summed per interval (same
-    aggregation as dynamic features) and appended to Z.
+    Additional columns from cfg.static_features are appended to Z. Hardware
+    columns (``hw_*``) are machine/interval-level metadata and use max per
+    interval so one-hot values stay 0/1 instead of scaling with process count.
+    Other extra columns keep the previous sum aggregation.
     """
     # n_processes: count rows per interval
     n_proc = (
@@ -224,15 +232,13 @@ def _compute_static_features(
     }
 
     if cfg.static_features:
-        extra_agg = (
-            df[df[TIME_COLUMN].isin(times)]
-            .groupby(TIME_COLUMN)[cfg.static_features]
-            .sum()
-            .reindex(times)
-            .fillna(0)
-        )
+        grouped = df[df[TIME_COLUMN].isin(times)].groupby(TIME_COLUMN)
         for feat in cfg.static_features:
-            frames[feat] = extra_agg[feat]
+            if feat.startswith("hw_"):
+                values = grouped[feat].max()
+            else:
+                values = grouped[feat].sum()
+            frames[feat] = values.reindex(times).fillna(0)
 
     return pd.DataFrame(frames)
 
@@ -425,6 +431,7 @@ def save_model(model: dict, cfg: EstimatorConfig, hostnames: list[str]) -> None:
         "scaler": model["scaler"],
         "features": cfg.features,
         "target": TARGET_COLUMN,
+        "target_unit": TARGET_UNIT,
         "time_column": TIME_COLUMN,
         "l1_penalty": cfg.l1_penalty,
         "static_penalty": cfg.static_penalty,
@@ -601,7 +608,7 @@ def run_cv_search(
         print(
             f"  [{combo_idx:>3}/{n_combos}]  "
             f"l1={l1:.4g}  static={sp:.4g}  "
-            f"→  CV MAE = {mean_mae:.2f} ± {std_mae:.2f} Wh"
+            f"→  CV MAE = {mean_mae:.2f} ± {std_mae:.2f} {TARGET_UNIT}"
         )
 
     best = min(all_results, key=lambda x: x["mean_mae"])
@@ -638,7 +645,9 @@ def main() -> None:
     args = parse_args()
     cfg = load_config(args.env_file)
 
-    required_columns = [TIME_COLUMN, TARGET_COLUMN, *cfg.features]
+    required_columns = list(
+        dict.fromkeys([TIME_COLUMN, TARGET_COLUMN, *cfg.features, *cfg.static_features])
+    )
     validate_columns_in_file(args.data, required_columns)
     dataset = load_dataset(args.data, columns=required_columns)
 
@@ -665,7 +674,7 @@ def main() -> None:
                 f"\nBest hyperparameters found by CV:\n"
                 f"  l1_penalty     = {cv_result.best_l1_penalty}\n"
                 f"  static_penalty = {cv_result.best_static_penalty}\n"
-                f"  CV MAE         = {cv_result.best_mae:.4f} Wh"
+                f"  CV MAE         = {cv_result.best_mae:.4f} {TARGET_UNIT}"
             )
             cfg = EstimatorConfig(
                 features=cfg.features,
@@ -708,6 +717,8 @@ def main() -> None:
             features=cfg.features,
             learning_curve_data=learning_curve,
             cv_results=cv_result.all_results if cv_result is not None else None,
+            hostname=args.hostname,
+            workload_name=args.workload_name,
         )
         for path in saved_plot_paths:
             print(f"Saved plot: {path}")
