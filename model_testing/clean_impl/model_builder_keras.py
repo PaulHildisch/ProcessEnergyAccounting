@@ -6,18 +6,33 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score, mean_absolute_error
 
-from sklearn.linear_model import Ridge
+#import keras
+from keras import optimizers, callbacks, optimizers
+
+standard_callbacks = [
+    #callbacks.TerminateOnNaN(),
+    callbacks.EarlyStopping(monitor='loss',patience=3,restore_best_weights=True),
+    #callbacks.ReduceLROnPlateau(monitor="val_loss", factor=0.15, min_lr=0.001)
+    ]
+standard_optimizer = optimizers.Adam(learning_rate=0.001, epsilon=1e-4)
 
 class ModelBuilder():
 
-    def __init__(self, X_train, X_test, y_train, y_test, model, scaler):
+    def __init__(self, X_train, X_test, y_train, y_test, model, scaler, 
+                batch_size = 64,
+                train_epochs = 30,
+                optimizer=standard_optimizer, 
+                callbacks=standard_callbacks):
         self.X_train = X_train
         self.X_test = X_test
         self.y_train = y_train
         self.y_test = y_test
         self.model = model
         self.scaler = scaler
-
+        self.batch_size = batch_size
+        self.train_epochs = train_epochs
+        self.optimizer = optimizer
+        self.callbacks = callbacks
 
 
     def _scale(self):
@@ -31,9 +46,8 @@ class ModelBuilder():
 
 
     def _train(self):
-        #self.model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
-        #self.model = Ridge(alpha=1.0)
-        self.model.fit(self.X_train_scaled, self.y_train)
+        self.model.compile(optimizer=self.optimizer, loss='mse', metrics=['mae'])
+        self.model.fit(self.X_train_scaled, self.y_train, epochs=self.train_epochs, batch_size=self.batch_size, validation_split=0.2, callbacks = [self.callbacks])
     
     def _test(self):
         self.y_pred = self.model.predict(self.X_test_scaled)
@@ -55,7 +69,7 @@ class ModelBuilder():
         zero_activity_interval = np.zeros((1, len(self.X_test_scaled[0])))
         zero_activity_interval = self.scaler.transform(zero_activity_interval)
         self.learned_idle_power = self.model.predict(zero_activity_interval)[0]
-        print(f"The model's learned baseline idle interval energy is: {self.learned_idle_power:.2f} Ws")
+        print(f"The model's learned baseline idle interval energy is: {self.learned_idle_power[0]:.2f} Ws")
         print("-" * 34)
         print("/n")
 
