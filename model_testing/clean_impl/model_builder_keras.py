@@ -9,9 +9,10 @@ from sklearn.metrics import r2_score, mean_absolute_error
 #import keras
 from keras import optimizers, callbacks, optimizers
 
+# Turn off some callbacks if there are errors.
 standard_callbacks = [
     #callbacks.TerminateOnNaN(),
-    callbacks.EarlyStopping(monitor='loss',patience=3,restore_best_weights=True),
+    #callbacks.EarlyStopping(monitor='loss',patience=3),
     #callbacks.ReduceLROnPlateau(monitor="val_loss", factor=0.15, min_lr=0.001)
     ]
 standard_optimizer = optimizers.Adam(learning_rate=0.001, epsilon=1e-4)
