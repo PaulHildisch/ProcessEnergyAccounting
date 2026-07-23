@@ -17,13 +17,14 @@ standard_callbacks = [
     ]
 standard_optimizer = optimizers.Adam(learning_rate=0.001, epsilon=1e-4)
 
-class ModelBuilder():
+class KerasModelBuilder():
 
     def __init__(self, X_train, X_test, y_train, y_test, model, scaler, 
                 batch_size = 64,
                 train_epochs = 30,
                 optimizer=standard_optimizer, 
-                callbacks=standard_callbacks):
+                callbacks=standard_callbacks,
+                window_size = 0):
         self.X_train = X_train
         self.X_test = X_test
         self.y_train = y_train
@@ -34,7 +35,7 @@ class ModelBuilder():
         self.train_epochs = train_epochs
         self.optimizer = optimizer
         self.callbacks = callbacks
-
+        self.window_size = window_size
 
     def _scale(self):
         #Try without scaling
@@ -47,10 +48,23 @@ class ModelBuilder():
 
 
     def _train(self):
+        # Check whether windowing is used. Recommended for models that need context like LSTM or CNN
+        if self.window_size > 1:
+            self.X_train_scaled = np.lib.stride_tricks.sliding_window_view(self.X_train_scaled, self.window_size, axis=0)
+            self.y_train = self.y_train[self.window_size - 1:]
+            #print(X_train_scaled.shape)
+            #print(y_train.shape)
+
         self.model.compile(optimizer=self.optimizer, loss='mse', metrics=['mae'])
         self.model.fit(self.X_train_scaled, self.y_train, epochs=self.train_epochs, batch_size=self.batch_size, validation_split=0.2, callbacks = [self.callbacks])
-    
+                    
+
     def _test(self):
+        if self.window_size > 1:
+            self.X_test_scaled = np.lib.stride_tricks.sliding_window_view(self.X_test_scaled, self.window_size, axis=0)
+            self.y_test = self.y_test[self.window_size - 1:]
+        #print(self.X_test_scaled.shape)
+        #print(self.y_test.shape)
         self.y_pred = self.model.predict(self.X_test_scaled)
     
     def _evaluate(self):
@@ -71,6 +85,25 @@ class ModelBuilder():
         zero_activity_interval = self.scaler.transform(zero_activity_interval)
         self.learned_idle_power = self.model.predict(zero_activity_interval)[0]
         print(f"The model's learned baseline idle interval energy is: {self.learned_idle_power[0]:.2f} Ws")
+        print("-" * 34)
+        print("/n")
+
+        #TODO Solve idle error for windowing
+    def idle_power(self):
+        #Predict an interval were all metrics are 0 to get an "idle prediction"
+        print(self.X_test_scaled.shape)
+        print(len(self.X_test_scaled[0]))
+        zero_activity_interval = np.zeros((20, len(self.X_test_scaled[0])))
+        zero_activity_interval = self.scaler.transform(zero_activity_interval)
+        print(zero_activity_interval.shape)
+        print(zero_activity_interval)
+        #zero_activity_interval = np.tile(zero_activity_interval, (1, self.window_size,1))
+        zero_activity_interval = np.expand_dims(zero_activity_interval, axis=0)
+        #print(zero_activity_interval.shape)
+        #print(zero_activity_interval)
+        self.learned_idle_power = self.model.predict(zero_activity_interval)[0]
+        print(self.model.predict(zero_activity_interval))
+        #print(f"The model's learned baseline idle interval energy is: {self.learned_idle_power[0]:.2f} Ws")
         print("-" * 34)
         print("/n")
 
