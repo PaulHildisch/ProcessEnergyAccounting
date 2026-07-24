@@ -24,7 +24,7 @@ class KerasModelBuilder():
                 train_epochs = 30,
                 optimizer=standard_optimizer, 
                 callbacks=standard_callbacks,
-                window_size = 0):
+                window_size = 1):
         self.X_train = X_train
         self.X_test = X_test
         self.y_train = y_train
@@ -56,7 +56,7 @@ class KerasModelBuilder():
             #print(y_train.shape)
 
         self.model.compile(optimizer=self.optimizer, loss='mse', metrics=['mae'])
-        self.model.fit(self.X_train_scaled, self.y_train, epochs=self.train_epochs, batch_size=self.batch_size, validation_split=0.2, callbacks = [self.callbacks])
+        self.model.fit(self.X_train_scaled, self.y_train, epochs=self.train_epochs, batch_size=self.batch_size) #validation_split=0.1) #callbacks = [self.callbacks])
                     
 
     def _test(self):
@@ -78,9 +78,15 @@ class KerasModelBuilder():
         print(f"  MAE:       {mae:.2f} Ws ({mae_pct:.2f}% of mean)")
         print("-" * 34)
 
-    
+
+    #TODO Solve idle error for windowing
     def _idle_power(self):
         #Predict an interval were all metrics are 0 to get an "idle prediction"
+        if self.window_size > 1:
+            # TODO
+            self.learned_idle_power = 0
+            print("Warning: For windowing functionality, Idle prediction is skipped. To be solved.")
+            return
         zero_activity_interval = np.zeros((1, len(self.X_test_scaled[0])))
         zero_activity_interval = self.scaler.transform(zero_activity_interval)
         self.learned_idle_power = self.model.predict(zero_activity_interval)[0]
@@ -88,7 +94,7 @@ class KerasModelBuilder():
         print("-" * 34)
         print("/n")
 
-        #TODO Solve idle error for windowing
+        #TODO Solve idle error for windowing TODO delete def idle_power(self):
     def idle_power(self):
         #Predict an interval were all metrics are 0 to get an "idle prediction"
         print(self.X_test_scaled.shape)
