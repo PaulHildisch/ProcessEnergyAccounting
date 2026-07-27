@@ -78,40 +78,19 @@ class KerasModelBuilder():
         print(f"  MAE:       {mae:.2f} Ws ({mae_pct:.2f}% of mean)")
         print("-" * 34)
 
-
-    #TODO Solve idle error for windowing
     def _idle_power(self):
         #Predict an interval were all metrics are 0 to get an "idle prediction"
-        if self.window_size > 1:
-            # TODO
-            self.learned_idle_power = 0
-            print("Warning: For windowing functionality, Idle prediction is skipped. To be solved.")
-            return
-        zero_activity_interval = np.zeros((1, len(self.X_test_scaled[0])))
+        zero_activity_interval = np.zeros((self.window_size, len(self.X_test_scaled[0])))
         zero_activity_interval = self.scaler.transform(zero_activity_interval)
+        if self.window_size > 1:
+            zero_activity_interval = np.lib.stride_tricks.sliding_window_view(zero_activity_interval, self.window_size, axis=0)
+
         self.learned_idle_power = self.model.predict(zero_activity_interval)[0]
+
         print(f"The model's learned baseline idle interval energy is: {self.learned_idle_power[0]:.2f} Ws")
         print("-" * 34)
         print("/n")
 
-        #TODO Solve idle error for windowing TODO delete def idle_power(self):
-    def idle_power(self):
-        #Predict an interval were all metrics are 0 to get an "idle prediction"
-        print(self.X_test_scaled.shape)
-        print(len(self.X_test_scaled[0]))
-        zero_activity_interval = np.zeros((20, len(self.X_test_scaled[0])))
-        zero_activity_interval = self.scaler.transform(zero_activity_interval)
-        print(zero_activity_interval.shape)
-        print(zero_activity_interval)
-        #zero_activity_interval = np.tile(zero_activity_interval, (1, self.window_size,1))
-        zero_activity_interval = np.expand_dims(zero_activity_interval, axis=0)
-        #print(zero_activity_interval.shape)
-        #print(zero_activity_interval)
-        self.learned_idle_power = self.model.predict(zero_activity_interval)[0]
-        print(self.model.predict(zero_activity_interval))
-        #print(f"The model's learned baseline idle interval energy is: {self.learned_idle_power[0]:.2f} Ws")
-        print("-" * 34)
-        print("/n")
 
     def _save_model(self,path, filename):
         filepath = os.path.join(path, filename)
