@@ -32,8 +32,8 @@ class Plotter:
             label_model = "Predicted (MLP optuna)"
         elif self.alg_name.lower() == "ffnn":
             label_model = "Predicted (FFNN)"
-        elif self.alg_name.lower() == "cnn_1d":
-            label_model = "Predicted (CNN-1D)"
+        elif self.alg_name.lower() == "cnn":
+            label_model = "Predicted (CNN)"
         elif self.alg_name.lower() == "lstm":
             label_model = "Predicted (LSTM)"
         else:

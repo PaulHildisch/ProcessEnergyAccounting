@@ -110,7 +110,7 @@ class KerasModelBuilder():
         return self.y_pred, self.learned_idle_power
         
     
-    def run_and_save_model(self, path="./",save=False, model_name="random_forest.joblib"):
+    def run_and_save_model(self, path="./",save=False, model_name="model.joblib"):
         self._scale()
         self._train()
         self._test()
