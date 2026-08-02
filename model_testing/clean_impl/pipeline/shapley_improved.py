@@ -1,7 +1,7 @@
 import shap
 import numpy as np
 import pandas as pd
-from attributor_plotter import AttributionPlotter
+from model_testing.clean_impl.plotting.attributor_plotter import AttributionPlotter
 
 class ProcessAttributorSHAP:
 
@@ -139,7 +139,7 @@ class ProcessAttributorSHAP:
 
 import numpy as np
 import pandas as pd
-from attributor_plotter import AttributionPlotter
+from model_testing.clean_impl.plotting.attributor_plotter import AttributionPlotter
 
 class ProcessAttributorEBM:
 

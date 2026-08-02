@@ -1,8 +1,9 @@
 import pandas as pd
-
 from sklearn.base import BaseEstimator, TransformerMixin
 import numpy as np
 
+#Currently this file only contains the Spearman correlation filter
+#Could be extended to implement other decorrelation approaches in the future
 
 
 class CustomSpearmanFilter(BaseEstimator, TransformerMixin):
@@ -16,7 +17,6 @@ class CustomSpearmanFilter(BaseEstimator, TransformerMixin):
         if not isinstance(X, pd.DataFrame):
             X = pd.DataFrame(X)
         
-
         corr_matrix = X.corr(method='spearman').abs()
         mask = np.triu(np.ones(corr_matrix.shape), k=1).astype(bool)
         upper_triangle_matrix = corr_matrix.where(mask)
@@ -24,7 +24,6 @@ class CustomSpearmanFilter(BaseEstimator, TransformerMixin):
         return self
     
     def transform(self, X):
-
         df = pd.DataFrame(X)
         return df.drop(columns=self.to_drop_cols_)
 

@@ -1,9 +1,11 @@
-from plotting import plot_dataset
-from preprocessing import Preprocessor
+from model_testing.clean_impl.plotting.plotting import plot_dataset
+from model_testing.clean_impl.pipeline.preprocessing import Preprocessor
 import pandas as pd
+#Utils file in order to plot datasets without making a prediction
+#This allows to visualize a recorded dataset wihtout having to train a model
+#Can be used for visual inspection to identify obvious outliers or errors during the data collection process
 
-
-
+#Choose datasets that should be visualized
 data = {
 
     "rnaseq_1_0207" : pd.read_parquet("runs/nfcore-20260701T114734Z/datasets/rnaseq_1_02027.parquet"),
@@ -16,6 +18,7 @@ data = {
 
 }
 
+#Not important for the actual visualization but we make use of our Preprocessing class which expects features
 features = [
     "delta_cpu_ns",
     "delta_io_bytes",
@@ -40,12 +43,10 @@ features = [
 ]
 
 
-
-
-
 for name , df in data.items():
-    print("process ", name)
+    print("Dataset: ", name)
     print(df.head(3))
-    preprocessor_train = Preprocessor(df,features )
+    preprocessor_train = Preprocessor(df,features)
+    #Preprocess entire dataset
     _, y_train, t_train = preprocessor_train.preprocess_no_split()
     plot_dataset(t_train, y_train, "data_inspection/" +name +".png")
