@@ -73,11 +73,11 @@ def select_data(dataset_name):
 
 
     #only local debugging
-    # elif dataset_name == "DEBUG_LOCAL":
-    #     train_workflows = [
-    #                     pd.read_parquet("data/siena12/test/sarek_1.parquet")
-    #             ]
-    #     test_workflows = pd.read_parquet("data/siena12/test/sarek_2.parquet")
+    elif dataset_name == "DEBUG_LOCAL":
+        train_workflows = [
+                        pd.read_parquet("data/siena12/test/sarek_1.parquet")
+                ]
+        test_workflows = pd.read_parquet("data/siena12/test/sarek_2.parquet")
         
     else:
         raise ValueError("UNKOWN DATASET SELECTED! Choose valide name.")
@@ -161,5 +161,5 @@ model = RandomForestRegressor(n_estimators=100,  n_jobs=-1, random_state=42)
 #model = SafeEBMWrapper()
 #model = Ridge(alpha=1.0)
 #model = Lasso(alpha=0.1)
-pipeline("AUTO", features, general_features, model, "SHORT", attribute=True)
+pipeline("AUTO", features, general_features, model, "DEBUG_LOCAL", attribute=True)
 

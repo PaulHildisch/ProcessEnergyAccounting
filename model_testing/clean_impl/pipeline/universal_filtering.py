@@ -16,6 +16,8 @@ class CustomSpearmanFilter(BaseEstimator, TransformerMixin):
         #important for the optuna optimiuzation
         if not isinstance(X, pd.DataFrame):
             X = pd.DataFrame(X)
+
+        self.feature_names_in_ = np.array(X.columns)
         
         corr_matrix = X.corr(method='spearman').abs()
         mask = np.triu(np.ones(corr_matrix.shape), k=1).astype(bool)
@@ -29,7 +31,10 @@ class CustomSpearmanFilter(BaseEstimator, TransformerMixin):
 
     def get_feature_names_out(self, input_features=None):
         if input_features is None:
-            raise ValueError("input_features must be provided by the pipeline.")
+            if hasattr(self, "feature_names_in_"):
+                input_features = self.feature_names_in_
+            else:
+                raise ValueError("input_features must be provided or the transformer must be fitted first.")
         
         return np.array([feat for feat in input_features if feat not in self.to_drop_cols_])
 
