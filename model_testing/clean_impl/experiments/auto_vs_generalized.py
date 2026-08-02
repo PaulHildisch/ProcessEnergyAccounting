@@ -18,8 +18,8 @@ from model_testing.clean_impl.pipeline.universal_filtering import CustomSpearman
 from model_testing.clean_impl.pipeline.wrappers import SafeEBMWrapper, CvxpyMimicLasso
 from model_testing.clean_impl.pipeline.model_builder import ModelBuilder
 from model_testing.clean_impl.pipeline.preprocessing import Preprocessor
-from plotting.plotting import Plotter
-from plotting.plotting import plot_dataset
+from model_testing.clean_impl.plotting.plotting import Plotter
+from model_testing.clean_impl.plotting.plotting import plot_dataset
 
 #This is an experimental pipeline that compares model performance of general features vs automatic features vs sfs features
 #This will use A LOT of RAM because all data sets are loaded at the same time

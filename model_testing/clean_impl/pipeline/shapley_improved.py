@@ -28,7 +28,9 @@ class ProcessAttributorSHAP:
     
     def attribute(self, df_original, good_features, test_times ,custom_name):
         self._init_explainer()
-        shap_vals = self.explainer.shap_values(self.X_test)
+
+        #Think about this safety check again, maybe replace idle prediction with, lowest value in the data set to make it work mathematically
+        shap_vals = self.explainer.shap_values(self.X_test, check_additivity=False)
         #Look into learning constraints?
         #This is questionable due to the idle baseline there should only be postivite attributions?
         #There is no visible difference in the plots -> so the difference is small at most 
