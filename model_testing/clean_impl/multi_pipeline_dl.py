@@ -1,9 +1,14 @@
+
+from time import perf_counter
+import os
+start_time = perf_counter()
+
 from model_builder import ModelBuilder
 from model_builder_keras import KerasModelBuilder
 
 from preprocessing import Preprocessor
-from plotting_other import Plotter # Originally from plotting import Plotter
-from plotting_other import plot_dataset
+from plotting_other import Plotter
+from plotting import plot_dataset
 #from shapley import ProcessAttributor
 from shapley_improved import ProcessAttributorSHAP
 from shapley_improved_other import ProcessAttributorSHAPMLP
@@ -15,8 +20,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.feature_selection import VarianceThreshold, SelectFromModel
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
-#from sklearn.linear_model import Ridge
-#from sklearn.linear_model import Lasso
+
 from sklearn.base import BaseEstimator, RegressorMixin
 import numpy as np
 
@@ -28,9 +32,25 @@ from sklearn.inspection import permutation_importance
 
 # Deep Learning with Keras Tensorflow
 #import keras
-from keras import layers, optimizers, callbacks, Sequential
+from keras import layers, optimizers, callbacks, Sequential,regularizers
+from keras.wrappers import SKLearnRegressor
+
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
+# Load data
 
 # Dataset Selection
+
+train_mixed_unseen_type = [
+     pd.read_parquet("../../ProcessEnergyAccounting/runs/nfcore-20260704T110043Z/datasets/chipseq_2_0607.parquet"),
+     pd.read_parquet("../../ProcessEnergyAccounting/runs/nfcore-20260701T114734Z/datasets/rnaseq_1_02027.parquet"),
+     #pd.read_parquet("../../ProcessEnergyAccounting/runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet"),
+     pd.read_parquet("../../ProcessEnergyAccounting/runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet")
+
+ ]
+test_mixed_unseen_type = pd.read_parquet("../../ProcessEnergyAccounting/runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet")
+test_mixed_unseen_type2 = pd.read_parquet("runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet")
 
 train_ampliseq = [
         pd.read_parquet("../../ProcessEnergyAccounting/runs/nfcore-20260703T215123Z/datasets/ampliseq_1_0607.parquet"),
@@ -74,40 +94,23 @@ test_ampliseq = pd.read_parquet("../../ProcessEnergyAccounting/runs/nfcore-20260
 
 #---------------------------------
 
-# test_long_on_short_training = pd.read_parquet("runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet")
-# short_training = [
-#     pd.read_parquet("runs/nfcore-20260630T142308Z/datasets/rnaseq1_shorttest.parquet"),
-#     pd.read_parquet("runs/nfcore-20260630T143512Z/datasets/chipseq1_shorttest.parquet"),
-#     pd.read_parquet("runs/nfcore-20260630T152039Z/datasets/methlyseq1_shorttest.parquet"),
-#     # pd.read_parquet("runs/nfcore-20260630T152447Z/datasets/methylseq2_shorttest.parquet"),
-#     pd.read_parquet("runs/nfcore-20260630T153034Z/datasets/sarek1_shorttest.parquet")
-#     # pd.read_parquet("runs/nfcore-20260630T153034Z/datasets/sarek1_shorttest.parquet"),
-#     # pd.read_parquet("runs/nfcore-20260630T153801Z/datasets/sarek2_short_test.parquet"),
-#     #pd.read_parquet("data/siena12/stressng_siena12.parquet")]
+#train_sarek = [
+#    pd.read_parquet("../../../../ProcessEnergyAccounting/runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet"),
+    #pd.read_parquet("../../../../ProcessEnergyAccounting/runs/nfcore-20260702T193504Z/datasets/sarek_2_0207.parquet")
+#]
+#test_sarek = pd.read_parquet("../../../../ProcessEnergyAccounting/runs/nfcore-20260708T212252Z/datasets/sarek3_0907.parquet")
+#DATA_PATH = "../../ProcessEnergyAccounting/runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet"
+#data_sarek = pd.read_parquet(DATA_PATH)
 
-# data = [
-#     #pd.read_parquet("data/siena12/full_test/ampliseq_1_0607.parquet"),
-#     # pd.read_parquet("data/siena12/full_test/ampliseq_2_0607.parquet"),
-#     #pd.read_parquet("data/siena12/full_test/ampliseq_3_0707.parquet")
-#     #pd.read_parquet("runs/stressng-custom-1782744477/datasets/process_interval_data.parquet")
-#     #pd.read_parquet("data/siena12/test/rnaseq_siena12.parquet"),
-#     #pd.read_parquet("runs/nfcore-20260701T114734Z/datasets/rnaseq_1_02027.parquet"),
-#     #pd.read_parquet("runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet"),
-#     #pd.read_parquet("runs/nfcore-20260702T193504Z/datasets/sarek_2_0207.parquet"),
-#     #pd.read_parquet("runs/nfcore-20260702T072031Z/datasets/chipseq1_0207.parquet"),
-#     #pd.read_parquet("runs/nfcore-20260704T110043Z/datasets/chipseq_2_0607.parquet"),
-#     #pd.read_parquet("runs/nfcore-20260704T110043Z/datasets/chipseq_2_0607.parquet"),
-#     pd.read_parquet("runs/nfcore-20260703T215123Z/datasets/ampliseq_1_0607.parquet"),
-#     pd.read_parquet("runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet"),
-#     #pd.read_parquet("runs/nfcore-20260706T112716Z/datasets/ampliseq_3_0707.parquet"),
-#     pd.read_parquet("runs/nfcore-20260708T125031Z/datasets/ampliseq_triple_run.parquet")
-# ]
+
+#number_slice = int(len(data_sarek)*0.8) #Smaller dataset
+#training_data = data_sarek[:number_slice]
+#test_data = data_sarek[number_slice: ]
 
 # Load Data
-training_data = pd.concat(train_ampliseq, ignore_index=True)
+training_data = pd.concat(train_mixed_unseen_type, ignore_index=True)
 training_data = training_data
-test_data = test_ampliseq
-PNG_NAME = "mlp_pred_sarek"
+test_data = test_mixed_unseen_type2
 
 features = [
     "delta_cpu_ns",
@@ -132,62 +135,190 @@ features = [
     "delta_branch_instructions",
 ]
 
-# Train Set Preprocessing
+
 preprocessor_train = Preprocessor(training_data, features)
 X_train_FULL, y_train, t_train, _ = preprocessor_train.preprocess_no_split()
 
-# MLP model structure.
-# mlp_model = MLPRegressor(hidden_layer_sizes=(128,32,16),
-#                    activation='relu',
-#                    solver='adam',
-#                    learning_rate_init=0.0001,
-#                    max_iter=500,
-#                    batch_size=64,
-#                    early_stopping=True,
-#                    random_state=42)
+# For windowing fucntionality the size to raise over 1. 
+# Windowing fucntionality is only intended for CNN and LSTM.
+window_size = 1
+num_features = len(X_train_FULL.columns)
 
-# Random Forest recommended for automatic feature selection pipeline.
-# MLP can be also used for automatic feature selection pipeline.
-# class SafeMLPWrapper(BaseEstimator, RegressorMixin):
-#    def __init__(self,activation="relu", solver="adam",model=mlp_model):
-#        self.activation = activation
-#        self.solver = solver
-#        self.model = None
-#
-#    def fit(self, X, y):
-#        self.model = mlp_model
-#        
-#        self.model.fit(X, y)
-#        n_features = X.shape[1]
-#        all_importances = permutation_importance(self.model, X, y,
-#                           n_repeats=30,
-#                           random_state=0)
-#        
-#        # Now convert to numpy array and slice it for SelectFromModel
-#        #print(np.array(all_importances))
-#        self.feature_importances_ = np.array(all_importances.importances_mean)
-#        return self
-#
-#    def predict(self, X):
-#        return self.model.predict(X)
+# Models used
+# Convolutional Neural Network (1D)
+def dynamic_model(model_name, num_features, window_size=1):
+    cnn_model = Sequential([
 
-# 
-# List of models for both feature selection and training.
-# Params could be tuned as well -> Optuna Tuner makes no real difference
+        layers.Input(shape=(num_features, window_size)), # (num_features, sequence_length) #Only current value
+        layers.Conv1D(32, kernel_size=num_features, padding='same', activation="relu"),
+        layers.BatchNormalization(),
 
-model = RandomForestRegressor(n_estimators=100,  n_jobs=-1, random_state=42)
-#model = Ridge(alpha=1.0)
-#model = Lasso(alpha=0.1)
+        layers.Conv1D(32, kernel_size=num_features, padding='same', activation="relu"),
+        layers.BatchNormalization(),
+        
+        layers.Flatten(),
+        layers.Dense(32, activation='relu'),
+        layers.Dense(1)
+    
+    ])
+    ffnn_model = Sequential([
+    layers.Input(shape=(num_features, 1)), # (num_features, sequence_length) #Only current value
+    layers.Flatten(),
+
+    layers.Dense(64, activation='relu'),
+
+    layers.Dense(16, activation='relu'),
+    layers.Dense(1)
+    ])
+    mlp_model = MLPRegressor(hidden_layer_sizes=(128,64,32),
+                    activation='relu',
+                    solver='adam',
+                    learning_rate_init=0.0001,
+                    max_iter=500,
+                    #alpha = 0.0000675,
+                    batch_size=64,
+                    early_stopping=True,    # Crucial for time-series stability
+                    #validation_fraction=0.1,
+                    random_state=42)
+
+    if model_name == "cnn":
+        model = cnn_model
+    elif model_name == "ffnn":
+        model = ffnn_model
+    elif model_name == "mlp":
+        model = mlp_model
+    else:
+        ValueError("Model not implemented")
+    return model
+
+standard_callbacks = [
+    callbacks.TerminateOnNaN(),
+    callbacks.EarlyStopping(monitor='loss',patience=3),
+    ]
+
+class SafeKerasWrapper(RegressorMixin, BaseEstimator):
+    def __init__(self,model = None, window_size = 1):
+        self.model = model
+        self.window_size = window_size
+
+    def fit(self, X, y):
+        
+        self.model.compile(optimizer=optimizers.Adam(learning_rate=0.0001, epsilon=1e-4), loss='mse', metrics=['mae'])
+        training_fs_start_time = perf_counter()
+        X_special = X
+        if self.window_size > 1:
+            
+            X = np.lib.stride_tricks.sliding_window_view(X, self.window_size, axis=0)
+            y = y[self.window_size - 1:]
+            print("train windowed:")
+            print(X.shape)
+            print(X.shape[0])
+            print(y.shape)
+            self.model.fit(X, y, epochs=30, batch_size=256, callbacks=standard_callbacks, verbose = 0) #validation_split=0.1) #callbacks = [self.callbacks])
+            X_special = X.reshape(X.shape[0],X.shape[1]*X.shape[2])
+        else:
+            self.model.fit(X, y, epochs=30, batch_size=256, callbacks=standard_callbacks, verbose = 0) #validation_split=0.1) #callbacks = [self.callbacks])
+
+        training_fs_end_time = perf_counter()
+        print("permutation_importance:")
+        print(X_special.shape)
+        print(y.shape)
+
+        all_importances = permutation_importance(model, X_special, y,
+                           n_repeats=3,
+                           scoring='neg_mean_squared_error',
+                           random_state=42,
+                            max_samples=0.2,
+                           n_jobs = -1)
+        all_importances = np.array(all_importances.importances_mean)
+        # Now convert to numpy array and slice it for SelectFromModel
+        #print(np.array(all_importances))
+
+        self.feature_importances_ = all_importances
+        #print(self.feature_importances_ )
+        
+        training_fs_time = training_fs_end_time - training_fs_start_time
+        print(f"Training feature selection time: {training_fs_time:.2f} seconds")
+        return self
+
+    def predict(self, X):
+        return self.model.predict(X, verbose = 0)
+
+# EBMWrapper
+class SafeEBMWrapper(BaseEstimator, RegressorMixin):
+    def __init__(self, interactions=2, max_rounds=2000):
+        self.interactions = interactions
+        self.max_rounds = max_rounds
+        self.model = None
+
+    def fit(self, X, y):
+        self.model = ExplainableBoostingRegressor(
+            interactions=self.interactions,
+            max_rounds=self.max_rounds,
+            n_jobs=-1,
+            random_state=42
+        )
+        
+        self.model.fit(X, y)
+        n_features = X.shape[1]
+        all_importances = self.model.term_importances()
+        
+        # Now convert to numpy array and slice it for SelectFromModel
+        self.feature_importances_ = np.array(all_importances)[:n_features]
+        return self
+
+    def predict(self, X):
+        return self.model.predict(X)
+
+# MLP Wrapper
+class SafeMLPWrapper(BaseEstimator, RegressorMixin):
+    def __init__(self,activation="relu", solver="adam"):
+        self.activation = activation
+        self.solver = solver
+        self.model = dynamic_model("mlp",num_features,1)
+
+    def fit(self, X, y):
+        training_fs_start_time = perf_counter()
+        self.model.fit(X, y)
+        training_fs_end_time = perf_counter()
+        all_importances = permutation_importance(self, X, y,
+                                   n_repeats=10,
+                                   scoring='neg_mean_squared_error',
+                                   random_state=42,
+                                   n_jobs = -1
+                                    )
+        
+        # Now convert to numpy array and slice it for SelectFromModel
+        #print(np.array(all_importances))
+
+        training_fs_time = training_fs_end_time - training_fs_start_time
+        print(f"Training feature selection time: {training_fs_time:.2f} seconds")
+        self.feature_importances_ = np.array(all_importances.importances_mean)
+        return self
+
+    def predict(self, X):
+        return self.model.predict(X)
+
+
+
+#model = SafeKerasWrapper(dynamic_model("cnn",num_features,1),1) #only the current version
+model = SafeKerasWrapper(dynamic_model("ffnn",num_features,1),1)
+
 #model = SafeMLPWrapper()
+#model = RandomForestRegressor(n_estimators=100,  n_jobs=-1, random_state=42)
+#model = SafeEBMWrapper()
+afs_start_time = perf_counter()
 
-#These thresholds could be fine tuned.
-#Don't forget scaling the linear data before selecting features.
+
+# Automatic Feature Selection Pipeline
+#These thresholds could be fine tuned
 automatic_feature_selection = Pipeline(steps=[
-    ('variance', VarianceThreshold(threshold=0.01)), #explain this
+    #For Keras, comment out VarianceThreshold and CustomSpearmanFilter.
+    #('variance', VarianceThreshold(threshold=0.01)), #explain this
 
-    ('decorrelate', CustomSpearmanFilter(threshold=0.80)),
+    #('decorrelate', CustomSpearmanFilter(threshold=0.80)),
     ('scaler', StandardScaler()),
-    ('select_features', SelectFromModel(model, threshold='0.5*median'))
+    ('select_features', SelectFromModel(model, threshold='0.5*median'))#threshold='0.5*median'))
 ])
 
 automatic_feature_selection.set_output(transform="pandas")
@@ -195,99 +326,58 @@ automatic_feature_selection.fit_transform(X_train_FULL, y_train)
 good_features = automatic_feature_selection.get_feature_names_out().tolist()
 X_train = X_train_FULL[good_features]
 print("Selected columns:")
+print(len(good_features))
 print(good_features)
+num_features = len(good_features)
+
 
 #plot_dataset(t_train, y_train, "multi_training")
+
+
 
 # Test dataset preprocessing 
 preprocessor_test = Preprocessor(test_data, good_features)
 X_test, y_test, t_test , X_test_unaggregated = preprocessor_test.preprocess_no_split()
 
-#plot_dataset(t_test, y_test, "multi_testing")
-
-# For windowing fucntionality the size to raise over 1. 
-# Windowing fucntionality is only intended for CNN and LSTM.
-window_size = 20
-num_features = len(good_features)
-
-# Models only for training, not feature selection it could take too long.
-# Convolutional Neural Network (1D)
-cnn_model = Sequential([
-
-    layers.Input(shape=(num_features, window_size)), # (num_features, sequence_length) #Only current value
-    layers.Conv1D(32, kernel_size=num_features, padding='same', activation="relu"),
-    layers.BatchNormalization(),
-
-    layers.Conv1D(32, kernel_size=num_features, padding='same', activation="relu"),
-    layers.BatchNormalization(),
-
-    #layers.Conv1D(32, kernel_size=num_features, padding='same', activation="relu"),
-    #layers.BatchNormalization(),
-    
-    layers.Flatten(),
-    layers.Dense(32, activation='relu'),
-    layers.Dense(1)
-    
-])
-
-# Feed Forward Neural Network
-#ffnn_model = Sequential([
-#    layers.Input(shape=(num_features, window_size)), # (num_features, sequence_length) #Only current value
-#    layers.Flatten(),
-
-#    layers.Dense(64, activation='relu'),
-
-#    layers.Dense(16, activation='relu'),
-#    layers.Dense(1)
-    
-#])
-
-# LSTM Model
-#lstm_model = Sequential([
-#    layers.Input(shape=(num_features, window_size)), # (num_features, sequence_length) #Only current value
-#    layers.BatchNormalization(),
-#    layers.LSTM(64, return_sequences=True),
-#    layers.LSTM(64, return_sequences=True),
-#    layers.Flatten(),
-
-#    layers.Dense(1)
-    
-#])
-
-#idle_power_is actually idle interval energy
 # Replace the model with the chosen model.
 # KerasModelBuilder has some extra functionality for Keras Deep Learning Framework.
-builder= KerasModelBuilder(X_train, X_test, y_train, y_test, cnn_model, StandardScaler(), window_size=20, 
-                                train_epochs=20)
-# builder = ModelBuilder(X_train, X_test, y_train, y_test, model, StandardScaler())
+training_start_time = perf_counter()
+train_model = model
+#train_model = dynamic_model("cnn",num_features,window_size)  
+train_model = dynamic_model("ffnn",num_features,1)
+#train_model = dynamic_model("mlp",num_features,1)
+builder= KerasModelBuilder(X_train, X_test, y_train, y_test, train_model, StandardScaler(), 
+           window_size=window_size, train_epochs=10)
+#builder = ModelBuilder(X_train, X_test, y_train, y_test, train_model, StandardScaler())
 
 y_pred, learned_idle_power = builder.run_and_save_model()
-#y_pred, learned_idle_power = builder.run_and_save_model(".", model_name="mlp_model.joblib", save=True)
+training_end_time = perf_counter()
 
 #plotter = Plotter(y_pred,y_test, t_test)#, window_start =50, window_end=200)
 #plotter.plot_and_save("", PNG_NAME)
 
-#plotter = Plotter(y_pred,y_test, t_test,"cnn_1d")#, window_start =50, window_end=200)
-#plotter.plot_and_save("cnn_1d_")
+#plotter = Plotter(y_pred,y_test, t_test,"ffnn")#, window_start =50, window_end=200)
+#plotter.plot_and_save("ffnn")
 
-#For windowing fucntionality 
-plotter = Plotter(y_pred=y_pred,y_test=y_test[window_size - 1:], t_test= t_test[window_size - 1:],alg_name="lstm")
-plotter.plot_and_save("cnn_1d_windowing_")
-
-#check if we ann pass this differently
-# attributor = ProcessAttributorSHAP( builder.X_test_scaled, builder.model, builder.scaler)
-# attributor.attribute(X_test_unaggregated,good_features,t_test.values , "RF_SHAP")
-
-# attributor = ProcessAttributorEBM( builder.X_test_scaled, builder.model.model, builder.scaler)
-# attributor.attribute(X_test_unaggregated,good_features,t_test.values , "EBM")
+#For windowing functionality 
+#plotter = Plotter(y_pred=y_pred,y_test=y_test[window_size - 1:], t_test= t_test[window_size - 1:],alg_name="lstm")
+#plotter.plot_and_save("cnn_windowing_")
 
 #check if we ann pass this differently
 #attributor = ProcessAttributorSHAPMLP( builder.X_test_scaled, builder.model, builder.scaler)
 #attributor.attribute(X_test_unaggregated,good_features,t_test.values, "mlp_graphs_")
 
-#Nur zum Test -> eigentlich Pauls Aufgabe
-# attributor = ProcessAttributorLinear(  builder.model, builder.scaler)
-# attributor.attribute(X_test_unaggregated,good_features,t_test.values)
+#attributor = ProcessAttributorSHAP( builder.X_test_scaled, builder.model, builder.scaler)
+#attributor.attribute(X_test_unaggregated,good_features,t_test.values , "RF_SHAP")
+afs_end_time = perf_counter()
+end_time = perf_counter()
 
+print("Basic Time Calculation")
 
+afs_execution_time = afs_end_time - afs_start_time
+training_execution_time = training_end_time - training_start_time
+total_execution_time = end_time - start_time
+print(f"AFS execution time: {afs_execution_time:.2f} seconds")
+print(f"Training execution time: {training_execution_time:.2f} seconds")
 
+print(f"Total execution time: {total_execution_time:.2f} seconds")

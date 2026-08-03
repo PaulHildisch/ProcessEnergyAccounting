@@ -11,11 +11,11 @@ from keras import optimizers, callbacks, optimizers
 
 # Turn off some callbacks if there are errors.
 standard_callbacks = [
-    #callbacks.TerminateOnNaN(),
-    #callbacks.EarlyStopping(monitor='loss',patience=3),
+    callbacks.TerminateOnNaN(),
+    callbacks.EarlyStopping(monitor='loss'),
     #callbacks.ReduceLROnPlateau(monitor="val_loss", factor=0.15, min_lr=0.001)
     ]
-standard_optimizer = optimizers.Adam(learning_rate=0.001, epsilon=1e-4)
+standard_optimizer = optimizers.Adam(learning_rate=0.0001, epsilon=1e-4)
 
 class KerasModelBuilder():
 
@@ -54,9 +54,10 @@ class KerasModelBuilder():
             self.y_train = self.y_train[self.window_size - 1:]
             #print(X_train_scaled.shape)
             #print(y_train.shape)
-
+        #print(self.window_size)
+        #print(self.X_train_scaled.shape)
         self.model.compile(optimizer=self.optimizer, loss='mse', metrics=['mae'])
-        self.model.fit(self.X_train_scaled, self.y_train, epochs=self.train_epochs, batch_size=self.batch_size) #validation_split=0.1) #callbacks = [self.callbacks])
+        self.model.fit(self.X_train_scaled, self.y_train, epochs=self.train_epochs, batch_size=self.batch_size,callbacks = [self.callbacks]) #validation_split=0.1) #
                     
 
     def _test(self):
