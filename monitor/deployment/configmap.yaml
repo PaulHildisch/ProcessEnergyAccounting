@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: delta-aggregator-args
+  namespace: default
+data:
+  # Fallback args used by any node that has no matching key below.
+  # The key must match the node name (spec.nodeName / K8S_NODE_NAME).
+  default: >-
+    --interval 1
+    --kubernetes-integration
+    --kubeconfig /etc/rancher/k3s/k3s.yaml
+
+  # Per-node override. Key = node name. Add one entry per node you want
+  # to customize; everything else falls back to "default".
+  tux: >-
+    --interval 1
+    --kubernetes-integration
+    --kubeconfig /etc/rancher/k3s/k3s.yaml
+    --use-prometheus-exporter
+    --exporter-port 9002
+    --exporter-addr localhost
+    --exporter-mode pod

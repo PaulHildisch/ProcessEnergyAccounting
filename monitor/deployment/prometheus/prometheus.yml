@@ -1,0 +1,7 @@
+# prometheus.yml
+global:
+  scrape_interval: 2s
+scrape_configs:
+  - job_name: energy-monitor
+    static_configs:
+      - targets: ["localhost:9002"]
