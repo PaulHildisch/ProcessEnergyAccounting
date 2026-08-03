@@ -20,15 +20,9 @@ df = pd.read_parquet(args.filepath)
 # features = ['context_switches', 'syscall_class_network', 'delta_branch_instructions', 'syscall_class_time']
 
 # RF - sarek
-#   R² Score:  0.7539
-#   MAE:       9.09 Wh (4.52%)
-# Predicted idle energy: [173.76056419]
 # features = ["delta_cpu_ns", "delta_io_bytes", "delta_net_send_bytes", "context_switches", "syscall_count", "delta_rss_memory", "delta_cpu_time_proc", "syscall_class_file", "syscall_class_network", "syscall_class_memory", "syscall_class_other", "syscall_class_signal"]
 
 # RF - ampliseq
-#   R² Score:  -106.6638
-#   MAE:       117.64 Wh (61.72%)
-# Predicted idle energy: [143.23739955]
 features = ['delta_cpu_ns', 'delta_io_bytes', 'delta_net_send_bytes', 'context_switches', 'syscall_count', 'syscall_class_network', 'syscall_class_memory', 'syscall_class_sched']
 
 preprocessor = Preprocessor(df, features)
@@ -90,13 +84,12 @@ interval_energy_all.to_parquet(f"{filename}-preprocessed-targets.parquet")
 # df_agg = df.groupby("_time")[features].sum()
 
 # df_agg = pd.concat([interval_energy_all, df_agg], axis=1)
-print(df_agg[:5])
 df_agg.to_parquet(f"{filename}-preprocessed-aggregated.parquet")
 
 # store rows where any recorded value > 0 (meaning something was recorded for the given pid at the given time)
-df_unagg = df_unagg.reset_index().set_index(["_time","pid"])[features + ['pid_label', 'base_name']]
+df_unagg = df_unagg.reset_index().set_index(["_time","pid"])[features]
+print(df_unagg[:5])
+df_pid = df_unagg[(df_unagg > 0).any(axis=1)]
 
-df_unagg = df_unagg[(df_unagg[features] > 0).any(axis=1)]
-
-df_unagg.to_parquet(f"{filename}-preprocessed-pid.parquet")
+df_pid.to_parquet(f"{filename}-preprocessed-pid.parquet")
 print(f"Saving unscaled dataset with features \n{features}\nto \"{filename}-cleaned.parquet\"")
