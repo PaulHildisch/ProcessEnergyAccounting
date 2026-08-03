@@ -12,7 +12,7 @@ from keras import optimizers, callbacks, optimizers
 # Turn off some callbacks if there are errors.
 standard_callbacks = [
     callbacks.TerminateOnNaN(),
-    callbacks.EarlyStopping(monitor='loss'),
+    callbacks.EarlyStopping(monitor='loss', patience=1),
     #callbacks.ReduceLROnPlateau(monitor="val_loss", factor=0.15, min_lr=0.001)
     ]
 standard_optimizer = optimizers.Adam(learning_rate=0.0001, epsilon=1e-4)

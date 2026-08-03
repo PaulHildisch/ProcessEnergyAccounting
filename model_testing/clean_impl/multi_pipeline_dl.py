@@ -42,16 +42,6 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 # Dataset Selection
 
-train_mixed_unseen_type = [
-     pd.read_parquet("../../ProcessEnergyAccounting/runs/nfcore-20260704T110043Z/datasets/chipseq_2_0607.parquet"),
-     pd.read_parquet("../../ProcessEnergyAccounting/runs/nfcore-20260701T114734Z/datasets/rnaseq_1_02027.parquet"),
-     #pd.read_parquet("../../ProcessEnergyAccounting/runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet"),
-     pd.read_parquet("../../ProcessEnergyAccounting/runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet")
-
- ]
-test_mixed_unseen_type = pd.read_parquet("../../ProcessEnergyAccounting/runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet")
-test_mixed_unseen_type2 = pd.read_parquet("runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet")
-
 train_ampliseq = [
         pd.read_parquet("../../ProcessEnergyAccounting/runs/nfcore-20260703T215123Z/datasets/ampliseq_1_0607.parquet"),
         pd.read_parquet("../../ProcessEnergyAccounting/runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet"),
@@ -60,6 +50,8 @@ train_ampliseq = [
 ]
 
 test_ampliseq = pd.read_parquet("../../ProcessEnergyAccounting/runs/nfcore-20260706T112716Z/datasets/ampliseq_3_0707.parquet")
+
+#---------------------------------
 
 #train_ampliseq = [
 #        pd.read_parquet("runs/nfcore-20260703T215123Z/datasets/ampliseq_1_0607.parquet"),
@@ -81,6 +73,7 @@ test_ampliseq = pd.read_parquet("../../ProcessEnergyAccounting/runs/nfcore-20260
 # test_sarek = pd.read_parquet("runs/nfcore-20260708T212252Z/datasets/sarek3_0907.parquet")
 
 #---------------------------------
+#Be careful what you uncomment -> test data must not be in test data
 
 # train_mixed_unseen_type = [
 #     pd.read_parquet("runs/nfcore-20260704T110043Z/datasets/chipseq_2_0607.parquet"),
@@ -94,23 +87,25 @@ test_ampliseq = pd.read_parquet("../../ProcessEnergyAccounting/runs/nfcore-20260
 
 #---------------------------------
 
-#train_sarek = [
-#    pd.read_parquet("../../../../ProcessEnergyAccounting/runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet"),
-    #pd.read_parquet("../../../../ProcessEnergyAccounting/runs/nfcore-20260702T193504Z/datasets/sarek_2_0207.parquet")
-#]
-#test_sarek = pd.read_parquet("../../../../ProcessEnergyAccounting/runs/nfcore-20260708T212252Z/datasets/sarek3_0907.parquet")
 #DATA_PATH = "../../ProcessEnergyAccounting/runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet"
 #data_sarek = pd.read_parquet(DATA_PATH)
 
 
-#number_slice = int(len(data_sarek)*0.8) #Smaller dataset
+#number_slice = int(len(data_sarek)*0.8*0.1) #Smaller dataset
 #training_data = data_sarek[:number_slice]
 #test_data = data_sarek[number_slice: ]
 
 # Load Data
-training_data = pd.concat(train_mixed_unseen_type, ignore_index=True)
+training_data = pd.concat(train_ampliseq, ignore_index=True)
 training_data = training_data
-test_data = test_mixed_unseen_type2
+test_data = test_ampliseq
+
+#General sarek set
+#good_features = ['delta_cpu_ns', 'delta_io_bytes', 'delta_net_send_bytes', 'context_switches', 'syscall_count', 'delta_rss_memory', 'delta_cpu_time_proc', 'syscall_class_file', 'syscall_class_network', 'syscall_class_memory', 'syscall_class_process', 'syscall_class_other']
+#General unseen set, mixed unseen type2:
+#good_features = ['delta_cpu_ns', 'delta_io_bytes', 'delta_net_send_bytes', 'context_switches', 'syscall_count', 'delta_rss_memory', 'delta_cpu_time_proc', 'syscall_class_file', 'syscall_class_network', 'syscall_class_memory', 'syscall_class_process', 'syscall_class_other']
+#Generalized set
+#good_features =  ['delta_io_bytes', 'context_switches', 'delta_cpu_ns', 'delta_net_send_bytes', 'syscall_count']
 
 features = [
     "delta_cpu_ns",
@@ -140,11 +135,21 @@ preprocessor_train = Preprocessor(training_data, features)
 X_train_FULL, y_train, t_train, _ = preprocessor_train.preprocess_no_split()
 
 # For windowing fucntionality the size to raise over 1. 
-# Windowing fucntionality is only intended for CNN and LSTM.
+# Windowing fucntionality is only intended for CNN.
 window_size = 1
 num_features = len(X_train_FULL.columns)
 
 # Models used
+mlp_model = MLPRegressor(hidden_layer_sizes=(128,32,16),
+                    activation='relu',
+                    solver='adam',
+                    learning_rate_init=0.0001,
+                    max_iter=500,
+                    #alpha = 0.0000675,
+                    batch_size=64,
+                    early_stopping=True,    # Crucial for time-series stability
+                    #validation_fraction=0.1,
+                    random_state=42)
 # Convolutional Neural Network (1D)
 def dynamic_model(model_name, num_features, window_size=1):
     cnn_model = Sequential([
@@ -161,32 +166,9 @@ def dynamic_model(model_name, num_features, window_size=1):
         layers.Dense(1)
     
     ])
-    ffnn_model = Sequential([
-    layers.Input(shape=(num_features, 1)), # (num_features, sequence_length) #Only current value
-    layers.Flatten(),
-
-    layers.Dense(64, activation='relu'),
-
-    layers.Dense(16, activation='relu'),
-    layers.Dense(1)
-    ])
-    mlp_model = MLPRegressor(hidden_layer_sizes=(128,64,32),
-                    activation='relu',
-                    solver='adam',
-                    learning_rate_init=0.0001,
-                    max_iter=500,
-                    #alpha = 0.0000675,
-                    batch_size=64,
-                    early_stopping=True,    # Crucial for time-series stability
-                    #validation_fraction=0.1,
-                    random_state=42)
 
     if model_name == "cnn":
         model = cnn_model
-    elif model_name == "ffnn":
-        model = ffnn_model
-    elif model_name == "mlp":
-        model = mlp_model
     else:
         ValueError("Model not implemented")
     return model
@@ -197,38 +179,25 @@ standard_callbacks = [
     ]
 
 class SafeKerasWrapper(RegressorMixin, BaseEstimator):
-    def __init__(self,model = None, window_size = 1):
+    def __init__(self,model = None):
         self.model = model
-        self.window_size = window_size
 
     def fit(self, X, y):
         
-        self.model.compile(optimizer=optimizers.Adam(learning_rate=0.0001, epsilon=1e-4), loss='mse', metrics=['mae'])
+        self.model.compile(optimizer=optimizers.Adam(learning_rate=0.001, epsilon=1e-4), loss='mse', metrics=['mae'])
         training_fs_start_time = perf_counter()
-        X_special = X
-        if self.window_size > 1:
-            
-            X = np.lib.stride_tricks.sliding_window_view(X, self.window_size, axis=0)
-            y = y[self.window_size - 1:]
-            print("train windowed:")
-            print(X.shape)
-            print(X.shape[0])
-            print(y.shape)
-            self.model.fit(X, y, epochs=30, batch_size=256, callbacks=standard_callbacks, verbose = 0) #validation_split=0.1) #callbacks = [self.callbacks])
-            X_special = X.reshape(X.shape[0],X.shape[1]*X.shape[2])
-        else:
-            self.model.fit(X, y, epochs=30, batch_size=256, callbacks=standard_callbacks, verbose = 0) #validation_split=0.1) #callbacks = [self.callbacks])
+
+        self.model.fit(X, y, epochs=20, batch_size=256, callbacks=standard_callbacks, verbose = 0) #validation_split=0.1) #callbacks = [self.callbacks])
 
         training_fs_end_time = perf_counter()
         print("permutation_importance:")
-        print(X_special.shape)
+        print(X.shape)
         print(y.shape)
 
-        all_importances = permutation_importance(model, X_special, y,
-                           n_repeats=3,
+        all_importances = permutation_importance(model, X, y,
+                           n_repeats=5,
                            scoring='neg_mean_squared_error',
                            random_state=42,
-                            max_samples=0.2,
                            n_jobs = -1)
         all_importances = np.array(all_importances.importances_mean)
         # Now convert to numpy array and slice it for SelectFromModel
@@ -244,38 +213,22 @@ class SafeKerasWrapper(RegressorMixin, BaseEstimator):
     def predict(self, X):
         return self.model.predict(X, verbose = 0)
 
-# EBMWrapper
-class SafeEBMWrapper(BaseEstimator, RegressorMixin):
-    def __init__(self, interactions=2, max_rounds=2000):
-        self.interactions = interactions
-        self.max_rounds = max_rounds
-        self.model = None
-
-    def fit(self, X, y):
-        self.model = ExplainableBoostingRegressor(
-            interactions=self.interactions,
-            max_rounds=self.max_rounds,
-            n_jobs=-1,
-            random_state=42
-        )
-        
-        self.model.fit(X, y)
-        n_features = X.shape[1]
-        all_importances = self.model.term_importances()
-        
-        # Now convert to numpy array and slice it for SelectFromModel
-        self.feature_importances_ = np.array(all_importances)[:n_features]
-        return self
-
-    def predict(self, X):
-        return self.model.predict(X)
 
 # MLP Wrapper
 class SafeMLPWrapper(BaseEstimator, RegressorMixin):
     def __init__(self,activation="relu", solver="adam"):
         self.activation = activation
         self.solver = solver
-        self.model = dynamic_model("mlp",num_features,1)
+        self.model = MLPRegressor(hidden_layer_sizes=(128,32,16),
+                            activation='relu',
+                            solver='adam',
+                            learning_rate_init=0.0001,
+                            max_iter=500,
+                            #alpha = 0.0000675,
+                            batch_size=256,
+                            early_stopping=True,    # Crucial for time-series stability
+                            #validation_fraction=0.1,
+                            random_state=42)
 
     def fit(self, X, y):
         training_fs_start_time = perf_counter()
@@ -301,12 +254,9 @@ class SafeMLPWrapper(BaseEstimator, RegressorMixin):
 
 
 
-#model = SafeKerasWrapper(dynamic_model("cnn",num_features,1),1) #only the current version
-model = SafeKerasWrapper(dynamic_model("ffnn",num_features,1),1)
-
-#model = SafeMLPWrapper()
+#model = SafeKerasWrapper(dynamic_model("cnn",num_features,1)) #only the current version
+model = SafeMLPWrapper()
 #model = RandomForestRegressor(n_estimators=100,  n_jobs=-1, random_state=42)
-#model = SafeEBMWrapper()
 afs_start_time = perf_counter()
 
 
@@ -314,9 +264,8 @@ afs_start_time = perf_counter()
 #These thresholds could be fine tuned
 automatic_feature_selection = Pipeline(steps=[
     #For Keras, comment out VarianceThreshold and CustomSpearmanFilter.
-    #('variance', VarianceThreshold(threshold=0.01)), #explain this
-
-    #('decorrelate', CustomSpearmanFilter(threshold=0.80)),
+    ('variance', VarianceThreshold(threshold=0.01)), #explain this
+    ('decorrelate', CustomSpearmanFilter(threshold=0.80)),
     ('scaler', StandardScaler()),
     ('select_features', SelectFromModel(model, threshold='0.5*median'))#threshold='0.5*median'))
 ])
@@ -324,15 +273,16 @@ automatic_feature_selection = Pipeline(steps=[
 automatic_feature_selection.set_output(transform="pandas")
 automatic_feature_selection.fit_transform(X_train_FULL, y_train)
 good_features = automatic_feature_selection.get_feature_names_out().tolist()
+
+
 X_train = X_train_FULL[good_features]
 print("Selected columns:")
 print(len(good_features))
 print(good_features)
 num_features = len(good_features)
 
-
 #plot_dataset(t_train, y_train, "multi_training")
-
+afs_end_time = perf_counter()
 
 
 # Test dataset preprocessing 
@@ -342,13 +292,12 @@ X_test, y_test, t_test , X_test_unaggregated = preprocessor_test.preprocess_no_s
 # Replace the model with the chosen model.
 # KerasModelBuilder has some extra functionality for Keras Deep Learning Framework.
 training_start_time = perf_counter()
-train_model = model
+#train_model = model
 #train_model = dynamic_model("cnn",num_features,window_size)  
-train_model = dynamic_model("ffnn",num_features,1)
-#train_model = dynamic_model("mlp",num_features,1)
-builder= KerasModelBuilder(X_train, X_test, y_train, y_test, train_model, StandardScaler(), 
-           window_size=window_size, train_epochs=10)
-#builder = ModelBuilder(X_train, X_test, y_train, y_test, train_model, StandardScaler())
+train_model = mlp_model
+#builder= KerasModelBuilder(X_train, X_test, y_train, y_test, train_model, StandardScaler(), 
+#           window_size=window_size, train_epochs=30)
+builder = ModelBuilder(X_train, X_test, y_train, y_test, train_model, StandardScaler())
 
 y_pred, learned_idle_power = builder.run_and_save_model()
 training_end_time = perf_counter()
@@ -356,8 +305,8 @@ training_end_time = perf_counter()
 #plotter = Plotter(y_pred,y_test, t_test)#, window_start =50, window_end=200)
 #plotter.plot_and_save("", PNG_NAME)
 
-#plotter = Plotter(y_pred,y_test, t_test,"ffnn")#, window_start =50, window_end=200)
-#plotter.plot_and_save("ffnn")
+plotter = Plotter(y_pred,y_test, t_test,"cnn")#, window_start =50, window_end=200)
+plotter.plot_and_save("cnn")
 
 #For windowing functionality 
 #plotter = Plotter(y_pred=y_pred,y_test=y_test[window_size - 1:], t_test= t_test[window_size - 1:],alg_name="lstm")
@@ -369,7 +318,7 @@ training_end_time = perf_counter()
 
 #attributor = ProcessAttributorSHAP( builder.X_test_scaled, builder.model, builder.scaler)
 #attributor.attribute(X_test_unaggregated,good_features,t_test.values , "RF_SHAP")
-afs_end_time = perf_counter()
+
 end_time = perf_counter()
 
 print("Basic Time Calculation")
