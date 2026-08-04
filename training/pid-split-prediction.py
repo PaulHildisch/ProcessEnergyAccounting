@@ -12,7 +12,7 @@ from matplotlib import pyplot as plt
 from matplotlib import dates as dates
 from sklearn.metrics import r2_score, mean_absolute_error
 
-def evaluate_model(prediction, actual, zero_prediction):
+def evaluate_model(prediction: pd.DataFrame, actual: pd.DataFrame, zero_prediction: pd.DataFrame) -> tuple[float, float]:
     prediction_agg = prediction.groupby(['_time'])['interval_energy'].sum().reset_index()
     prediction_agg = prediction_agg['interval_energy'] + zero_prediction
     r2 = r2_score(actual, prediction_agg)
@@ -25,7 +25,8 @@ def evaluate_model(prediction, actual, zero_prediction):
 
     return r2, mae
 
-def plot(zero_prediction, prediction, actual, range = None, title="Individual PID Attributions"):
+def plot(prediction: pd.DataFrame, actual: pd.DataFrame, range: int = None, title: str ="Individual PID Attributions", grouped: bool=False) -> None:
+    grouplabel = "pid_label" if not grouped else "base_name"
     top_n = 8
     if range == None:
         start = 0
@@ -38,10 +39,10 @@ def plot(zero_prediction, prediction, actual, range = None, title="Individual PI
 
     actual.plot.line(ax=ax, linewidth=1, linestyle="solid")
 
-    agg = prediction.groupby(['_time', "pid_label"])['interval_energy'].sum().reset_index()
-    pivot = agg.pivot(index='_time', columns="pid_label", values='interval_energy').fillna(0)
+    agg = prediction.groupby(['_time', grouplabel])['interval_energy'].sum().reset_index()
 
-    # top_pids = pivot.max().sort_values(ascending=False).head(top_n).index
+    pivot = agg.pivot(index='_time', columns="base_name", values='interval_energy').fillna(0)
+
     top_pids = pivot.sum().sort_values(ascending=False).head(top_n).index
     pivot_top = pivot[top_pids].copy()
     
@@ -49,7 +50,7 @@ def plot(zero_prediction, prediction, actual, range = None, title="Individual PI
         pivot_top["Other"] = pivot.drop(columns=top_pids).sum(axis=1)
         
     pivot_top_clipped = pivot_top.clip(lower=0)
-    fig, ax = plt.subplots(figsize=(12, 5))
+    _, ax = plt.subplots(figsize=(12, 5))
     pivot_top_clipped.plot.area(ax=ax, alpha=0.8, linewidth=0)
     
 
@@ -63,10 +64,9 @@ def plot(zero_prediction, prediction, actual, range = None, title="Individual PI
     ax.legend(loc="upper left", bbox_to_anchor=(1.0, 1.0), fontsize=9, frameon=True)
 
     plt.tight_layout()
-    plt.savefig(f"plots/actual_vs_predicted_interval_energy-{time.strftime("%m%d%H%M%S")}.png", bbox_inches="tight", dpi=300)
+    plt.savefig(f"plots/{title.lower().replace(' ', '_')}-{time.strftime("%m%d%H%M%S")}.png", bbox_inches="tight", dpi=300)
 
-def predictions(data, model, zero_prediction) -> pd.DataFrame:
-    #data = data.reset_index().set_index("_time")
+def predictions(data: pd.DataFrame, model, zero_prediction: pd.DataFrame) -> pd.DataFrame:
     preds = pd.DataFrame(data['pid'], columns=['pid', 'interval_energy']).astype({"pid":"int64","interval_energy":"float64"})
     bar = progressbar.ProgressBar(max_value=len(data.index.to_series().unique()), widgets=['Making predictions:', ' ', progressbar.Percentage(), ' ', progressbar.Bar('#'), ' ', progressbar.Timer()], redirect_stdout=True)
     for timestamp in data.index.to_series().unique():
@@ -76,7 +76,7 @@ def predictions(data, model, zero_prediction) -> pd.DataFrame:
     bar.finish('\n')
     return preds
 
-def read_data(measurementsPath, targetsPath, scaler):
+def read_data(measurementsPath: str, targetsPath: str, scaler) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     x = pd.read_parquet(measurementsPath)
     y = pd.read_parquet(targetsPath)
 
@@ -88,8 +88,6 @@ def read_data(measurementsPath, targetsPath, scaler):
 
         for timestamp, interval_df in x.groupby(level=0):
             interval_df = interval_df.droplevel(0)
-            #interval_df[["delta_cpu_ns", "delta_io_bytes", "delta_net_send_bytes", "context_switches", "syscall_count", "delta_rss_memory", "delta_cpu_time_proc", "syscall_class_file", "syscall_class_network", "syscall_class_memory", "syscall_class_other", "syscall_class_signal"]] = scaler.transform(interval_df.drop(['pid_label', 'base_name'], axis=1))
-            # print(interval_df)
             x.loc[timestamp].iloc[:,:] = scaler.transform(interval_df)
             bar.update(bar.value+1)
         bar.finish('\n')
@@ -101,10 +99,14 @@ def read_data(measurementsPath, targetsPath, scaler):
     x_labels = x_labels.reset_index().set_index('_time')
     return x, y, x_labels
 
-def main(args):
+def main(args: tuple):
     modelFile = joblib.load(args.modelFile)
-    model = modelFile["model"]
-    scaler = modelFile["scaler"]
+
+    try:
+        model = modelFile["model"]
+        scaler = modelFile["scaler"]
+    except TypeError, KeyError:
+        raise TypeError("Modelfile does not fit expected format {\"model\": the trained model, \"scaler\": the scaler used during fitting}")
 
     zero_df = pd.DataFrame(scaler.transform(np.zeros((1, model.n_features_in_))))
     zero_prediction = model.predict(zero_df)
@@ -117,17 +119,17 @@ def main(args):
     
     modelname = "Random Forest"
     if args.full:
-        plot(zero_prediction[0], prediction, actual, title=f"Individual PID Attributions - {modelname}")
+        plot(prediction, actual, title=f"Individual PID Attributions - {modelname}")
     else:
-        plot(zero_prediction[0], prediction, actual, range=600, title=f"Individual PID Attributions - {modelname}")
+        plot(prediction, actual, range=600, title=f"Individual PID Attributions - {modelname}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--modelFile")
-    parser.add_argument("--targetDataSource")
-    parser.add_argument("--pidDataSource")
+    parser.add_argument("--modelFile", type=str)
+    parser.add_argument("--targetDataSource", type=str)
+    parser.add_argument("--pidDataSource", type=str)
     parser.add_argument("--full", action="store_true", default=False)
 
     args = parser.parse_args()

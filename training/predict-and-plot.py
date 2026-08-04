@@ -4,13 +4,12 @@ import time
 import argparse
 import joblib
 import warnings
-import progressbar
 from sklearn.preprocessing import StandardScaler
 from matplotlib import pyplot as plt
 from matplotlib import dates as dates
 from sklearn.metrics import r2_score, mean_absolute_error
 
-def evaluate_model(prediction, actual):
+def evaluate_model(prediction: pd.DataFrame, actual: pd.DataFrame) -> tuple[float, float]:
     r2 = r2_score(actual, prediction)
     mae = mean_absolute_error(actual, prediction)
 
@@ -21,7 +20,7 @@ def evaluate_model(prediction, actual):
 
     return r2, mae
 
-def plot(prediction, actual, range = None, title="Individual PID Attributions"):
+def plot(prediction, actual, range = None, title="Aggregated prediction"):
     if range == None:
         start = 0
         end = actual.shape[0]
@@ -61,12 +60,7 @@ def plot(prediction, actual, range = None, title="Individual PID Attributions"):
     plt.savefig(f"plots/actual_vs_predicted_interval_energy-{time.strftime("%m%d%H%M%S")}.png", bbox_inches="tight", dpi=300)
     plt.close()
 
-def predictions(data, model):
-    preds = model.predict(data)
-    print(preds[:5])
-    return preds
-
-def read_data(measurementsPath, targetsPath, scaler):
+def read_data(measurementsPath: str, targetsPath: str, scaler) -> tuple[np.ndarray, pd.DataFrame]:
     x = pd.read_parquet(measurementsPath)
     y = pd.read_parquet(targetsPath)
 
@@ -75,31 +69,36 @@ def read_data(measurementsPath, targetsPath, scaler):
     else: 
         scaler = StandardScaler()
         x = scaler.fit_transform(x)
-    return x,y
+    return x, y
 
-def main(args):
+def main(args: tuple) -> None:
     modelFile = joblib.load(args.modelFile)
-    model = modelFile["model"]
-    scaler = modelFile["scaler"]
+
+    try:
+        model = modelFile["model"]
+        scaler = modelFile["scaler"]
+    except TypeError, KeyError:
+        raise TypeError("Modelfile does not fit expected format {\"model\": the trained model, \"scaler\": the scaler used during fitting}")
 
     data, actual = read_data(args.pidDataSource, args.targetDataSource, scaler)
 
-    prediction = predictions(data, model)
-    # evaluate_model(prediction, actual)
-    
-    modelname = "Random Forest"
+    prediction = model.predict(data)
+    evaluate_model(prediction, actual)
+
+    modelname = args.modelName if args.modelName != None else type(model).__qualname__
     if args.full:
-        plot(prediction, actual, title=f"Individual PID Attributions - {modelname}")
+        plot(prediction, actual, title=f"Aggregated prediction - {modelname}")
     else:
-        plot(prediction, actual, range=600, title=f"Individual PID Attributions - {modelname}")
+        plot(prediction, actual, range=600, title=f"Aggregated prediction - {modelname}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--modelFile")
-    parser.add_argument("--targetDataSource")
-    parser.add_argument("--pidDataSource")
+    parser.add_argument("--modelFile", type=str)
+    parser.add_argument("--targetDataSource", type=str)
+    parser.add_argument("--aggregatedDataSource", type=str)
+    parser.add_argument("--modelName", type=str, default=None)
     parser.add_argument("--full", action="store_true", default=False)
 
     args = parser.parse_args()
