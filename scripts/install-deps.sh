@@ -25,18 +25,18 @@ error() {
 
 # Install build-deps
 sudo apt install zip unzip -y
-sudo apt install -y bison flex libelf-dev liblzma-dev zlib1g-dev libfl-dev libpolly-18-dev
+sudo apt install -y bison flex libelf-dev liblzma-dev zlib1g-dev libfl-dev #libpolly-18-dev
 sudo apt install -y build-essential g++ cmake
 sudo apt-get install cmake -y
-sudo apt install -y llvm-18-dev clang-18 libclang-18-dev
+sudo apt install -y llvm-15-dev clang-15 libclang-15-dev
 
 # Workload Tools
-curl -s https://get.sdkman.io | bash
-source "/home/niklas/.sdkman/bin/sdkman-init.sh"
-sdk install java 17.0.10-tem
-curl -s https://get.nextflow.io | NXF_VER=25.10.4 bash
-chmod +x nextflow
-sudo mv nextflow /usr/local/bin/
+# curl -s https://get.sdkman.io | bash
+# source "/home/niklas/.sdkman/bin/sdkman-init.sh"
+# sdk install java 17.0.10-tem
+# curl -s https://get.nextflow.io | NXF_VER=25.10.4 bash
+# chmod +x nextflow
+# sudo mv nextflow /usr/local/bin/
 
 
 # Make sure docker and docker-compose are installed
