@@ -268,7 +268,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--chunk-minutes",
         type=int,
-        default=30,
+        default=10,
         help="Split the time range into chunks of this many minutes to avoid query timeouts. Default: 30.",
     )
     parser.add_argument(

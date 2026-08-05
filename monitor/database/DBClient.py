@@ -21,7 +21,7 @@ class DBClient:
         self.org = org or "myorg"
         self.bucket = bucket or "mybucket"
         self.client = InfluxDBClient(
-            url=url, token=token, org=self.org, timeout=360_000
+            url=url, token=token, org=self.org, timeout=360_000, enable_gzip=True
         )
         self.write_api = self.client.write_api()
 
@@ -278,29 +278,17 @@ class DBClient:
         if aggregate_every:
             query = f"""
                 from(bucket: "{self.bucket}")
-                  |> range({range_args})
-                  |> map(fn: (r) => ({{ r with _value: float(v: r._value) }}))
-                  |> aggregateWindow(every: {aggregate_every}, fn: mean, createEmpty: false)
-                  |> group(columns: ["pid", "process_name"])
-                  |> pivot(
-                      rowKey: [{pivot_columns_flux}],
-                      columnKey: ["_field"],
-                      valueColumn: "_value"
-                  )
-                  |> sort(columns: ["_time", "pid"])
+                    |> range(start: {start}, stop: {stop})
+                    |> keep(columns: ["_time", "_field", "_value", "pid", "process_name"])
             """
-            dfs = self.client.query_api().query_data_frame(query, org=self.org)
-            if isinstance(dfs, list):
-                dfs = [d for d in dfs if d is not None and not d.empty]
-                df = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
-            else:
-                df = dfs if dfs is not None else pd.DataFrame()
-
-            if df.empty:
-                return df
-            df = df.drop(columns=[c for c in ["result", "table"] if c in df.columns])
-            df["_time"] = pd.to_datetime(df["_time"])
-            df = df.sort_values(["_time", "pid"])
+            parts = []
+            for df in self.client.query_api().query_data_frame_stream(query):
+                print("fetch done")
+                # pivot each chunk immediately -> long-to-wide shrinks it ~39x in row count
+                parts.append(df.pivot_table(index=["_time", "pid", "process_name"],
+                                            columns="_field", values="_value",
+                                            dropna=False))
+            return pd.concat(parts) if parts else None
         else:
             fields = self._load_process_field_keys(start=start, stop=stop)
             if not fields:
