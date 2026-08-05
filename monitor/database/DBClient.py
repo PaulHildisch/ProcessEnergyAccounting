@@ -272,25 +272,16 @@ class DBClient:
         group_columns_flux = ", ".join(
             f'"{column}"' for column in ["pid", "process_name", *selected_tag_columns]
         )
-        pivot_columns_flux = ", ".join(f'"{column}"' for column in pivot_columns)
+        pivot_columns_flux = '"_time", "pid", "process_name", "hw_arch", "hw_cpu_vendor", "hw_tdp_tier", "hw_cpu_governor", "hw_core_count_bucket", "hw_ram_size_bucket", "hw_ram_slots_bucket", "hw_fan_count_bucket", "hw_temp_state"'
+        #pivot_columns_flux = ", ".join(f'"{column}"' for column in pivot_columns)
 
         if aggregate_every:
             query = f"""
                 from(bucket: "{self.bucket}")
                   |> range({range_args})
-                  |> filter(fn: (r) =>
-                    r._measurement == "process_interval_metrics" and
-                    r._field != "cmdline" and
-                    r._field != "exe" and
-                    r._field != "cwd" and
-                    r._field != "cgroup"
-                  )
                   |> map(fn: (r) => ({{ r with _value: float(v: r._value) }}))
                   |> aggregateWindow(every: {aggregate_every}, fn: mean, createEmpty: false)
-                  |> map(fn: (r) => ({{ r with
-                      {tag_map_lines}
-                  }}))
-                  |> group(columns: [{group_columns_flux}])
+                  |> group(columns: ["pid", "process_name"])
                   |> pivot(
                       rowKey: [{pivot_columns_flux}],
                       columnKey: ["_field"],
