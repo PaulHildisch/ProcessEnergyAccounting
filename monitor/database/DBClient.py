@@ -1,4 +1,5 @@
 import warnings
+import time
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
@@ -21,7 +22,7 @@ class DBClient:
         self.org = org or "myorg"
         self.bucket = bucket or "mybucket"
         self.client = InfluxDBClient(
-	    url=url, token=token, org=self.org, timeout=360_000, enable_gzip=True
+	    url=url, token=token, org=self.org, timeout=600_000, enable_gzip=True
         )
         self.write_api = self.client.write_api()
 
@@ -288,7 +289,10 @@ class DBClient:
                   )
             """
             print(query)
+            start = time.time()
             dfs = self.client.query_api().query_data_frame(query, org=self.org)
+            end = time.time()
+            print(f"Fetching took {end-start}s")
             if isinstance(dfs, list):
                 dfs = [d for d in dfs if d is not None and not d.empty]
                 df = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
@@ -300,7 +304,7 @@ class DBClient:
             df = df.drop(columns=[c for c in ["result", "table"] if c in df.columns])
             df["_time"] = pd.to_datetime(df["_time"])
             df = df.sort_values(["_time", "pid"])
-       else:
+        else:
             fields = self._load_process_field_keys(start=start, stop=stop)
             if not fields:
                 return pd.DataFrame()
