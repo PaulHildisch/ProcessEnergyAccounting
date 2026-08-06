@@ -107,7 +107,7 @@ if [[ ! -f "${DATA_LOADER_PATH}" ]]; then
   exit 1
 fi
 
-if command -v poetry >/dev/null 2>&1; then
+if false; then
   (
     cd "${MODELING_DIR}"
     PYTHONPATH="${REPO_ROOT}/monitor:${REPO_ROOT}:${PYTHONPATH:-}" \

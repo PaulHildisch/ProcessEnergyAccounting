@@ -278,7 +278,6 @@ class DBClient:
         if aggregate_every:
             query = f"""
                 from(bucket: "{self.bucket}")
-<<<<<<< HEAD
                   |> range({range_args})
                   |> aggregateWindow(every: {aggregate_every}, fn: mean, createEmpty: false)
                   |> group(columns: ["pid", "process_name"])
@@ -301,20 +300,7 @@ class DBClient:
             df = df.drop(columns=[c for c in ["result", "table"] if c in df.columns])
             df["_time"] = pd.to_datetime(df["_time"])
             df = df.sort_values(["_time", "pid"])
-=======
-                    |> range(start: {start}, stop: {stop})
-                    |> keep(columns: ["_time", "_field", "_value", "pid", "process_name"])
-            """
-            parts = []
-            for df in self.client.query_api().query_data_frame_stream(query):
-                print("fetch done")
-                # pivot each chunk immediately -> long-to-wide shrinks it ~39x in row count
-                parts.append(df.pivot_table(index=["_time", "pid", "process_name"],
-                                            columns="_field", values="_value",
-                                            dropna=False))
-            return pd.concat(parts) if parts else None
->>>>>>> 8c78311162dc3f72081d0d7f18dfecfd8d50891d
-        else:
+       else:
             fields = self._load_process_field_keys(start=start, stop=stop)
             if not fields:
                 return pd.DataFrame()
