@@ -21,7 +21,7 @@ class DBClient:
         self.org = org or "myorg"
         self.bucket = bucket or "mybucket"
         self.client = InfluxDBClient(
-            url=url, token=token, org=self.org, timeout=360_000
+            url=url, token=token, org=self.org, timeout=600_000
         )
         self.write_api = self.client.write_api()
 
@@ -272,14 +272,13 @@ class DBClient:
         group_columns_flux = ", ".join(
             f'"{column}"' for column in ["pid", "process_name", *selected_tag_columns]
         )
-        pivot_columns_flux = '"_time", "pid", "process_name", "hw_arch", "hw_cpu_vendor", "hw_tdp_tier", "hw_cpu_governor", "hw_core_count_bucket", "hw_ram_size_bucket", "hw_ram_slots_bucket", "hw_fan_count_bucket", "hw_temp_state"'
+        pivot_columns_flux = '"_time", "pid", "process_name"'
         #pivot_columns_flux = ", ".join(f'"{column}"' for column in pivot_columns)
 
         if aggregate_every:
             query = f"""
                 from(bucket: "{self.bucket}")
                   |> range({range_args})
-                  |> map(fn: (r) => ({{ r with _value: float(v: r._value) }}))
                   |> aggregateWindow(every: {aggregate_every}, fn: mean, createEmpty: false)
                   |> group(columns: ["pid", "process_name"])
                   |> pivot(
@@ -287,8 +286,8 @@ class DBClient:
                       columnKey: ["_field"],
                       valueColumn: "_value"
                   )
-                  |> sort(columns: ["_time", "pid"])
             """
+            print(query)
             dfs = self.client.query_api().query_data_frame(query, org=self.org)
             if isinstance(dfs, list):
                 dfs = [d for d in dfs if d is not None and not d.empty]
