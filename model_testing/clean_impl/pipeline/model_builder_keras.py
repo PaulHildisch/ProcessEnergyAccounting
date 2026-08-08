@@ -1,13 +1,11 @@
 import joblib
 import os
 import numpy as np
-
-from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score, mean_absolute_error
 
 #import keras
 from keras import optimizers, callbacks, optimizers
+#This class is used to train, run, evaluate and save a deep learning model to disc
 
 # Turn off some callbacks if there are errors.
 standard_callbacks = [
@@ -38,24 +36,15 @@ class KerasModelBuilder():
         self.window_size = window_size
 
     def _scale(self):
-        #Try without scaling
-        # self.scaler = None
-        # self.X_train_scaled = self.X_train
-        # self.X_test_scaled = self.X_test
-        #self.scaler = StandardScaler()
         self.X_train_scaled = self.scaler.fit_transform(self.X_train.values)
         self.X_test_scaled = self.scaler.transform(self.X_test.values)
 
-
     def _train(self):
-        # Check whether windowing is used. Recommended for models that need context like LSTM or CNN
+        # Check whether windowing is used. Recommended for models that need context such as CNN
         if self.window_size > 1:
             self.X_train_scaled = np.lib.stride_tricks.sliding_window_view(self.X_train_scaled, self.window_size, axis=0)
             self.y_train = self.y_train[self.window_size - 1:]
-            #print(X_train_scaled.shape)
-            #print(y_train.shape)
-        #print(self.window_size)
-        #print(self.X_train_scaled.shape)
+
         self.model.compile(optimizer=self.optimizer, loss='mse', metrics=['mae'])
         self.model.fit(self.X_train_scaled, self.y_train, epochs=self.train_epochs, batch_size=self.batch_size,callbacks = [self.callbacks]) #validation_split=0.1) #
                     
@@ -64,8 +53,7 @@ class KerasModelBuilder():
         if self.window_size > 1:
             self.X_test_scaled = np.lib.stride_tricks.sliding_window_view(self.X_test_scaled, self.window_size, axis=0)
             self.y_test = self.y_test[self.window_size - 1:]
-        #print(self.X_test_scaled.shape)
-        #print(self.y_test.shape)
+
         self.y_pred = self.model.predict(self.X_test_scaled)
     
     def _evaluate(self):
@@ -74,7 +62,6 @@ class KerasModelBuilder():
         mean_energy = self.y_test.mean()
         mae_pct = (mae / mean_energy) * 100
         
-        #print(f" Random Forest")
         print(f"  R² Score:  {r2:.4f}")
         print(f"  MAE:       {mae:.2f} Ws ({mae_pct:.2f}% of mean)")
         print("-" * 34)
@@ -117,7 +104,6 @@ class KerasModelBuilder():
         self._test()
         self._evaluate()
         self._idle_power()
-        #Dont svae rn
         if save:
             self._save_model(path, model_name)
         return self.y_pred, self.learned_idle_power

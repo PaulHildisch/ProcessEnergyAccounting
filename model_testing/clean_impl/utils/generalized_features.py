@@ -1,4 +1,5 @@
-# Automatically selected features for all data sets
+#Util file to find the intersection of features across multiple automatic selection results
+#-> We used this to form a generalized feature set by extracting a minimum subset that is present in all workflows with and without stressng 
 
 
 #ampliseq Train:

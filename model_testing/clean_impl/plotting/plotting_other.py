@@ -28,14 +28,8 @@ class Plotter:
             label_model = "Predicted (EBM)"
         elif self.alg_name.lower() == "mlp":
             label_model = "Predicted (MLP)"
-        elif self.alg_name.lower() == "mlp_optuna":
-            label_model = "Predicted (MLP optuna)"
-        elif self.alg_name.lower() == "ffnn":
-            label_model = "Predicted (FFNN)"
         elif self.alg_name.lower() == "cnn":
             label_model = "Predicted (CNN)"
-        elif self.alg_name.lower() == "lstm":
-            label_model = "Predicted (LSTM)"
         else:
             label_model = "Predicted Energy"
         
@@ -62,21 +56,18 @@ class Plotter:
         )
         self.ax.set_title(title, fontsize=13, pad=6)
 
-    def plot_and_save(self, path="./", name="actual_vs_predicted_interval_energy"):
+    #Only enable display option, if the plots should be shown immediately -> use disabled default on servers
+    def plot_and_save(self, path="./", name="actual_vs_predicted_interval_energy", display=False):
         self._init_sub_plots()
         self._set_labels_title_legend()
         plt.tight_layout(pad=0.5)
         plt.savefig(path + name +".pdf", bbox_inches="tight")
         plt.savefig(path + name + ".png", bbox_inches="tight", dpi=300)
-        #plt.show()
+        if display:
+            plt.show()
         plt.close(self.fig)
 
-    def plot_only(self, path="./"):
-        self._init_sub_plots()
-        self._set_labels_title_legend()
-        plt.tight_layout(pad=0.5)
-        plt.show()
-
+#Utility function to plot just a dataset without the model prediction overlay
 def plot_dataset(t, y,name, window_start = None, window_end= None):
     window_start = window_start if window_start is not None else 0
     window_end = window_end if window_end is not None else len(t)

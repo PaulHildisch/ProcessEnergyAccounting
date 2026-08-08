@@ -3,17 +3,17 @@ from time import perf_counter
 import os
 start_time = perf_counter()
 
-from model_builder import ModelBuilder
-from model_builder_keras import KerasModelBuilder
+from model_testing.clean_impl.pipeline.model_builder import ModelBuilder
+from model_testing.clean_impl.pipeline.model_builder_keras import KerasModelBuilder
 
-from preprocessing import Preprocessor
-from plotting_other import Plotter
-from plotting import plot_dataset
+from model_testing.clean_impl.pipeline.preprocessing import Preprocessor
+from model_testing.clean_impl.plotting.plotting_other import Plotter
+from model_testing.clean_impl.plotting.plotting import plot_dataset
 #from shapley import ProcessAttributor
-from shapley_improved import ProcessAttributorSHAP
-from shapley_improved_other import ProcessAttributorSHAPMLP
+from model_testing.clean_impl.pipeline.shapley_improved import ProcessAttributorSHAP
+from model_testing.clean_impl.pipeline.shapley_improved_other import ProcessAttributorSHAPMLP
 
-from universal_filtering import CustomSpearmanFilter
+from model_testing.clean_impl.pipeline.universal_filtering import CustomSpearmanFilter
 import pandas as pd
 
 from sklearn.pipeline import Pipeline
