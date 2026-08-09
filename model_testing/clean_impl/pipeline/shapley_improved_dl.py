@@ -50,11 +50,11 @@ class ProcessAttributorSHAPMLP:
         ratios = df_original[good_features].div(totals, axis=0).fillna(0)
         # Multiply ratios by the SHAP budgets, then sum across the features (axis=1) to get final 
         df_result = df_original.copy()
-        df_result["attributed_dynamic_Wh"] = ratios.mul(df_budgets, axis=0).sum(axis=1)
+        df_result["attributed_dynamic_Ws"] = ratios.mul(df_budgets, axis=0).sum(axis=1)
         #print(df_result.head(5))
 
         #
-        plotter = AttributionPlotter(df_result, time_col="_time", energy_col="attributed_dynamic_Wh")
+        plotter = AttributionPlotter(df_result, time_col="_time", energy_col="attributed_dynamic_Ws")
         plotter.plot_top_processes(top_n=8, save_path=custom_name + "shap_process_attribution.png")
         plotter.plot_top_processes_new(top_n=8, save_path=custom_name +"shap_process_attribution_new.png")
         plotter.plot_top_pids(top_n=8, save_path=custom_name+"shap_pid_attribution.png")

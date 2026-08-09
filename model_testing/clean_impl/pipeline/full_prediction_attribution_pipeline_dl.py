@@ -1,18 +1,12 @@
 #Compiling:
 #.../ProcessEnergyAccounting$ python3 -m model_testing.clean_impl.pipeline.full_prediction_attribution_pipeline_dl
 import pandas as pd
-from sklearn.ensemble import RandomForestRegressor
 from sklearn.pipeline import Pipeline
 from sklearn.feature_selection import VarianceThreshold, SelectFromModel
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import Ridge
-from sklearn.linear_model import Lasso
 from sklearn.neural_network import MLPRegressor
-from sklearn.base import is_regressor
-from sklearn.base import BaseEstimator
 
-from keras import layers, optimizers, callbacks, Sequential,regularizers
-from keras.wrappers import SKLearnRegressor
+from keras import layers, optimizers, callbacks, Sequential
 import os
 
 #Custom imports
@@ -22,11 +16,8 @@ from model_testing.clean_impl.pipeline.model_builder_keras import KerasModelBuil
 
 from model_testing.clean_impl.plotting.plotting import Plotter
 from model_testing.clean_impl.pipeline.universal_filtering import CustomSpearmanFilter
-from model_testing.clean_impl.pipeline.wrappers import SafeEBMWrapper
 from model_testing.clean_impl.pipeline.wrappers_dl import SafeMLPWrapper, SafeKerasWrapper
 
-from model_testing.clean_impl.pipeline.shapley_improved import ProcessAttributorSHAP
-from model_testing.clean_impl.pipeline.shapley_improved import ProcessAttributorEBM
 from model_testing.clean_impl.pipeline.shapley_improved_dl import ProcessAttributorSHAPMLP
 
 
@@ -182,12 +173,12 @@ def pipeline(mode, full_features, general_features, model_name, dataset_name, at
     y_pred, learned_idle_power = builder.run_and_save_model(".", model_name="full_pipeline_model.joblib", save=True)
 
     #Plot prediction results
-    if model_name == "mlp":
+    if model_name == "mlp" or window_size==1:
         plotter = Plotter(y_pred,y_test, t_test)#, window_start =50, window_end=200)
-        plotter.plot_and_save("", "actual_energy_vs_predicted")
     else:
-        plotter = Plotter(y_pred=y_pred,y_test=y_test[window_size - 1:], t_test= t_test[window_size - 1:],alg_name="lstm")
-        plotter.plot_and_save("cnn_windowing_")
+        plotter = Plotter(y_pred,y_test[window_size - 1:], t_test[window_size - 1:])
+
+    plotter.plot_and_save("", "actual_energy_vs_predicted")
     #Attribute prediction
     if attribute:
         if model_name == "mlp":
@@ -216,7 +207,7 @@ def dynamic_model(model_name, num_features, window_size):
     
     ])
 
-    if model_name == "cnn":
+    if model_name.lower() == "cnn":
         model = cnn_model
     else:
         ValueError("Model not implemented")
@@ -231,5 +222,5 @@ mlp_model = MLPRegressor(hidden_layer_sizes=(128,32,16),
                     early_stopping=True,    # Crucial for time-series stability
                     random_state=42)
 
-pipeline("AUTO", features, general_features, "cnn", "SAREK", attribute=False)
-
+#pipeline("AUTO", features, general_features, "cnn", "SAREK", attribute=False)
+pipeline("GENERAL", features, general_features, "cnn", "SAREK", attribute=False)

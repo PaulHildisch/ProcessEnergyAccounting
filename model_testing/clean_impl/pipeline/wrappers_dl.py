@@ -20,10 +20,8 @@ class SafeMLPWrapper(BaseEstimator, RegressorMixin):
                             solver='adam',
                             learning_rate_init=0.0001,
                             max_iter=500,
-                            #alpha = 0.0000675,
                             batch_size=batch_size,
                             early_stopping=True,    # Crucial for time-series stability
-                            #validation_fraction=0.1,
                             random_state=42)
 
     def fit(self, X, y):
