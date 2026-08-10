@@ -279,12 +279,13 @@ for name ,value in data_map.items():
         y_pred_sfs, learned_idle_power_sfs = builder_sfs.run_and_save_model(".", save=False)
 
         # Plot sfs results
-        plotter_sfs = Plotter(y_pred_sfs, y_test_sfs, t_test_sfs)
-        #plotter_sfs.plot_and_save("auto_gen_plots/", "pred_sfs_" + PNG_NAME + '_' + model_name)
+        if model_name == "mlp" or window_size==1:
+            plotter_sfs = Plotter(y_pred_sfs, y_test_sfs, t_test_sfs)#, window_start =50, window_end=200)
+        else:
+            plotter_sfs = Plotter(y_pred_sfs, y_test_sfs[window_size - 1:], t_test_sfs[window_size - 1:])
+
+        #plotter.plot_and_save("auto_gen_plots/", "pred_auto_" + PNG_NAME +'_' + model_name)
         plotter_sfs.plot_and_save("", "pred_sfs_" + PNG_NAME + '_' + model_name)
-
-            
-
 
 
 
