@@ -183,7 +183,7 @@ for name ,value in data_map.items():
         plotter.plot_and_save("", "pred_gen_" + PNG_NAME +'_' + model_name)
 
         #Evaluate auto features
-        num_features=len(X_train_auto_FULL.column)
+        num_features=len(X_train_auto_FULL.columns)
         small_pipiline_used=False
         fs_model = None
         if model_name == "mlp":
@@ -225,7 +225,7 @@ for name ,value in data_map.items():
             training_model = mlp_model
             builder_auto = ModelBuilder(X_train_auto, X_test_auto, y_train_auto, y_test_auto, training_model, StandardScaler())
         else:
-            num_features = len(generalized_features)
+            num_features = len(good_features)
             training_model = dynamic_model(model_name,num_features,window_size)  
             builder_auto = KerasModelBuilder(X_train, X_test_auto, y_train_auto, y_test_auto, training_model, StandardScaler(), 
                 window_size=window_size, train_epochs=30)    
@@ -272,7 +272,7 @@ for name ,value in data_map.items():
             training_model = mlp_model
             builder_sfs = ModelBuilder(X_train_sfs, X_test_sfs, y_train_auto, y_test_sfs, training_model, StandardScaler())
         else:
-            num_features = len(generalized_features)
+            num_features = len(sfs_features)
             training_model = dynamic_model(model_name,num_features,window_size)  
             builder_sfs = KerasModelBuilder(X_train_sfs, X_test_sfs, y_train_auto, y_test_sfs, training_model, StandardScaler(), 
                 window_size=window_size, train_epochs=30)   
