@@ -22,7 +22,7 @@ class DBClient:
         self.org = org or "myorg"
         self.bucket = bucket or "mybucket"
         self.client = InfluxDBClient(
-	    url=url, token=token, org=self.org, timeout=600_000, enable_gzip=True
+	    url=url, token=token, org=self.org, timeout=600_000_000, enable_gzip=True
         )
         self.write_api = self.client.write_api()
 
