@@ -30,7 +30,8 @@ data =  {
     # "sarek2" : pd.read_parquet("runs/cpu06 daten/altes monitoring/cpu06_sarek2_old_mon.parquet"),
     # "sarek3" : pd.read_parquet("runs/cpu06 daten/altes monitoring/cpu06_sarek3_old_mon.parquet"),
     # "sarek_new_feat" : pd.read_parquet("runs/cpu06 daten/new monitoring/cpu06_sarek1_new_mon.parquet")
-    "sarek_new_feat" : pd.read_parquet("sarek1.parquet")
+    #"sarek_new_feat" : pd.read_parquet("sarek1.parquet")
+    "ampliseq_new_feat" : pd.read_parquet("ampliseq1_new_feat.parquet")
 }
 #Not important for the actual visualization but we make use of our Preprocessing class which expects features
 features = [
@@ -63,4 +64,4 @@ for name , df in data.items():
     preprocessor_train = Preprocessor(df,features)
     #Preprocess entire dataset
     _, y_train, t_train, _ = preprocessor_train.preprocess_no_split()
-    plot_dataset(t_train, y_train, "data_inspection/cpu06/" +name +".png")
+    plot_dataset(t_train, y_train, "data_inspection/siena12_new/" +name +".png")
