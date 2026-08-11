@@ -39,9 +39,9 @@ class ModelBuilder():
 
         if self.file_written:
             with open("eval_results.txt", "a") as f:
-                f.write(f"  R² Score:  {r2:.4f}")
-                f.write(f"  MAE:       {mae:.2f} Ws ({mae_pct:.2f}% of mean)")
-                f.write("-" * 34)    
+                f.write(f"  R² Score:  {r2:.4f}\n")
+                f.write(f"  MAE:       {mae:.2f} Ws ({mae_pct:.2f}% of mean)\n")
+                f.write("-" * 34 + "\n")    
 
     #Extract the models interval_energy prediction for an idle interval
     def _idle_power(self):

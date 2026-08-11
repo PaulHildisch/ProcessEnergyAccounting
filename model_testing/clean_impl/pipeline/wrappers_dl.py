@@ -66,12 +66,12 @@ class SafeKerasWrapper(RegressorMixin, BaseEstimator):
 
         self.model.fit(X, y, epochs=20, batch_size=256, callbacks=standard_callbacks, verbose = 0)
         #training_fs_end_time = perf_counter()
-        print("permutation_importance:")
-        print(X.shape)
-        print(y.shape)
+        #print("permutation_importance:")
+        #print(X.shape)
+        #print(y.shape)
 
         all_importances = permutation_importance(self.model, X, y,
-                           n_repeats=1,
+                           n_repeats=3,
                            scoring='neg_mean_squared_error',
                            random_state=42,
                            n_jobs = -1)

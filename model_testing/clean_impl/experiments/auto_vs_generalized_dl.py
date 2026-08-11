@@ -105,15 +105,18 @@ generalized_features =  ['delta_io_bytes', 'context_switches', 'delta_cpu_ns', '
 #generalized_features =['delta_io_bytes', 'syscall_class_network', 'syscall_class_memory', 'context_switches', 'delta_cpu_ns', 'delta_net_send_bytes', 'syscall_count']
 
 #Choose other Keras model if required.
-def dynamic_model(model_name, num_features, window_size):
+def dynamic_model(model_name, num_features, window_size=20):
+    #print(model_name)
+    #print(num_features)
+    #print(window_size)
     # Dynamic window size for CNN
     cnn_model = Sequential([
 
         layers.Input(shape=(num_features, window_size)), # (num_features, window_size)
-        layers.Conv1D(32, kernel_size=num_features, padding='same', activation="relu"),
+        layers.Conv1D(32, kernel_size=5, padding='same', activation="relu"),
         layers.BatchNormalization(),
 
-        layers.Conv1D(32, kernel_size=num_features, padding='same', activation="relu"),
+        layers.Conv1D(32, kernel_size=5, padding='same', activation="relu"),
         layers.BatchNormalization(),
         
         layers.Flatten(),
@@ -178,9 +181,9 @@ for name ,value in data_map.items():
             training_model = mlp_model
             builder = ModelBuilder(X_train, X_test, y_train, y_test, training_model, StandardScaler())
         else:
-            training_model = dynamic_model(model_name,num_features,window_size)  
+            training_model = dynamic_model(model_name,num_features,window_size) 
             builder = KerasModelBuilder(X_train, X_test, y_train, y_test, training_model, StandardScaler(), 
-                window_size=window_size, train_epochs=30)
+                window_size=window_size, train_epochs=30,file_written=False)
                 
         y_pred, learned_idle_power = builder.run_and_save_model(".", save = False)   
 
@@ -193,7 +196,7 @@ for name ,value in data_map.items():
         plotter.plot_and_save("", "pred_gen_" + PNG_NAME +'_' + model_name)
 
         #Evaluate auto features
-        num_features=len(X_train_auto_FULL.columns)
+        num_features=len(features) #all features
         small_pipiline_used=False
         fs_model = None
         if model_name == "mlp":
@@ -237,9 +240,9 @@ for name ,value in data_map.items():
             builder_auto = ModelBuilder(X_train_auto, X_test_auto, y_train_auto, y_test_auto, training_model, StandardScaler())
         else:
             num_features = len(good_features)
-            training_model = dynamic_model(model_name,num_features,window_size)  
-            builder_auto = KerasModelBuilder(X_train, X_test_auto, y_train_auto, y_test_auto, training_model, StandardScaler(), 
-                window_size=window_size, train_epochs=30)    
+            training_model = dynamic_model(model_name,num_features,window_size) 
+            builder_auto = KerasModelBuilder(X_train_auto, X_test_auto, y_train_auto, y_test_auto, training_model, StandardScaler(), 
+                window_size=window_size, train_epochs=30,file_written=False)    
                 
         y_pred_auto, learned_idle_power_auto = builder_auto.run_and_save_model(".", save=False)
 
@@ -251,16 +254,18 @@ for name ,value in data_map.items():
 
         #plotter.plot_and_save("auto_gen_plots/", "pred_auto_" + PNG_NAME +'_' + model_name)
         plotter.plot_and_save("", "pred_auto_" + PNG_NAME +'_' + model_name)
-        #uncomment for sfs
-        afs_execution_time = sfs_end_time - sfs_start_time
+        afs_execution_time = afs_end_time - afs_start_time
         print(f"AFS execution time: {afs_execution_time:.2f} seconds")
+
+        #uncomment for sfs
+
         if model_name == "mlp":
             fs_model = SafeMLPWrapper(batch_size=256,learning_rate_init=0.001, max_iter=100,n_repeats=2)
-        print("Evaluating pure SFS : " + model_name)     
-        sfs_start_time = perf_counter()
-        sfs_selector = Pipeline(steps=[
-            ('scaler', StandardScaler()),
-            ('sfs', SequentialFeatureSelector(
+            print("Evaluating pure SFS : " + model_name)     
+            sfs_start_time = perf_counter()
+            sfs_selector = Pipeline(steps=[
+                ('scaler', StandardScaler()),
+                ('sfs', SequentialFeatureSelector(
                 fs_model, 
                 direction='forward',
                 n_features_to_select='auto',
@@ -268,61 +273,92 @@ for name ,value in data_map.items():
                 scoring='r2', 
                 cv=3, 
                 n_jobs=-1
-            ))
-        ])
+                ))
+            ])
+            sfs_selector.set_output(transform="pandas")
+            #print(f"Running pure SFS for {model_name} (This may take a moment...)")
+            sfs_selector.fit(X_train_auto_FULL, y_train_auto)
+            sfs_features = sfs_selector.get_feature_names_out().tolist()
+            print("Selected SFS columns:")
+            print(sfs_features)
+            sfs_end_time = perf_counter()
+            # Subset the unscaled data using the SFS selected features
+            X_train_sfs = X_train_auto_FULL[sfs_features]
+            # Preprocess test data
+            preprocessor_test_sfs = Preprocessor(test_data, sfs_features)
+            X_test_sfs, y_test_sfs, t_test_sfs, _ = preprocessor_test_sfs.preprocess_no_split()
 
-        sfs_selector.set_output(transform="pandas")
-        #print(f"Running pure SFS for {model_name} (This may take a moment...)")
-        sfs_selector.fit(X_train_auto_FULL, y_train_auto)
-        sfs_features = sfs_selector.get_feature_names_out().tolist()
-        print("Selected SFS columns:")
-        print(sfs_features)
-        sfs_end_time = perf_counter()
-        # Subset the unscaled data using the SFS selected features
-        X_train_sfs = X_train_auto_FULL[sfs_features]
-        # Preprocess test data
-        preprocessor_test_sfs = Preprocessor(test_data, sfs_features)
-        X_test_sfs, y_test_sfs, t_test_sfs, _ = preprocessor_test_sfs.preprocess_no_split()
-        
-        if model_name == "mlp":
             training_model = mlp_model
             builder_sfs = ModelBuilder(X_train_sfs, X_test_sfs, y_train_auto, y_test_sfs, training_model, StandardScaler())
-        else:
-            num_features = len(sfs_features)
-            training_model = dynamic_model(model_name,num_features,window_size)  
-            builder_sfs = KerasModelBuilder(X_train_sfs, X_test_sfs, y_train_auto, y_test_sfs, training_model, StandardScaler(), 
-                window_size=window_size, train_epochs=30)   
-        y_pred_sfs, learned_idle_power_sfs = builder_sfs.run_and_save_model(".", save=False)
+            y_pred_sfs, learned_idle_power_sfs = builder_sfs.run_and_save_model(".", save=False)
 
-        # Plot sfs results
-        if model_name == "mlp" or window_size==1:
             plotter_sfs = Plotter(y_pred_sfs, y_test_sfs, t_test_sfs)#, window_start =50, window_end=200)
-        else:
-            plotter_sfs = Plotter(y_pred_sfs, y_test_sfs[window_size - 1:], t_test_sfs[window_size - 1:])
+            #plotter.plot_and_save("auto_gen_plots/", "pred_auto_" + PNG_NAME +'_' + model_name)
+            plotter_sfs.plot_and_save("", "pred_sfs_" + PNG_NAME + '_' + model_name)
+            sfs_execution_time = sfs_end_time - sfs_start_time
+            print(f"SFS execution time: {sfs_execution_time:.2f} seconds")
 
-        #plotter.plot_and_save("auto_gen_plots/", "pred_auto_" + PNG_NAME +'_' + model_name)
-        plotter_sfs.plot_and_save("", "pred_sfs_" + PNG_NAME + '_' + model_name)
+        # else:
+        #     num_features=len(features)
+        #     fs_model = SafeKerasWrapper(dynamic_model(model_name,num_features,1))
+        #     # Warning: CNN with Flatten does not work for SFS. 
+        #     # CNN with GlobalAveragePool compiles with bad performance. 
+        #     # Please comment it the out.
+        #     print("Evaluating pure SFS : " + model_name)     
+        #     sfs_start_time = perf_counter()
+        #     sfs_selector = Pipeline(steps=[
+        #         ('scaler', StandardScaler()),
+        #         ('sfs', SequentialFeatureSelector(
+        #         fs_model, 
+        #         direction='forward',
+        #         n_features_to_select='auto',
+        #         tol=0.005,          # minimum R² gain
+        #         scoring='r2', 
+        #         cv=3, 
+        #         n_jobs=-1
+        #         ))
+        #     ])
+        #     sfs_selector.set_output(transform="pandas")
+        #     #print(f"Running pure SFS for {model_name} (This may take a moment...)")
+        #     sfs_selector.fit(X_train_auto_FULL, y_train_auto)
+        #     sfs_features = sfs_selector.get_feature_names_out().tolist()
+        #     print("Selected SFS columns:")
+        #     print(sfs_features)
+        #     sfs_end_time = perf_counter()
+        #     # Subset the unscaled data using the SFS selected features
+        #     X_train_sfs = X_train_auto_FULL[sfs_features]
+        #     # Preprocess test data
+        #     preprocessor_test_sfs = Preprocessor(test_data, sfs_features)
+        #     X_test_sfs, y_test_sfs, t_test_sfs, _ = preprocessor_test_sfs.preprocess_no_split()
+        #     num_features = len(sfs_features)
+        #     training_model = dynamic_model(model_name,num_features,window_size)    
+        #     builder_sfs = KerasModelBuilder(X_train_sfs, X_test_sfs, y_train_auto, y_test_sfs, training_model, StandardScaler(), 
+        #                     window_size=window_size, train_epochs=30,file_written=False)
+        #     y_pred_sfs, learned_idle_power_sfs = builder_sfs.run_and_save_model(".", save=False)
 
-        sfs_execution_time = sfs_end_time - sfs_start_time
-        print(f"SFS execution time: {sfs_execution_time:.2f} seconds")
+        #     plotter_sfs = Plotter(y_pred_sfs, y_test_sfs[window_size - 1:], t_test_sfs[window_size - 1:])
+        #     #plotter.plot_and_save("auto_gen_plots/", "pred_auto_" + PNG_NAME +'_' + model_name)
+        #     plotter_sfs.plot_and_save("", "pred_sfs_" + PNG_NAME + '_' + model_name)
+        #     sfs_execution_time = sfs_end_time - sfs_start_time
+        #     print(f"SFS execution time: {sfs_execution_time:.2f} seconds")
 
         ##If needed: Store the results in a file if you don't want to wait for output.
-        with open("eval_results.txt", "a") as f:
-            f.write("Evaluating AFS : " + model_name + "\n")
-            for feature in good_features:
-                f.write(f"{feature},")
-            f.write("\n")
-            f.write(f"AFS execution time: {afs_execution_time:.2f} seconds")
-            f.write("\n-------\n")   
-            f.write("Evaluating pure SFS : " + model_name + "\n")
-            for feature in sfs_features:
-                f.write(f"{feature},")
-            f.write("\n")
-            f.write(f"SFS execution time: {sfs_execution_time:.2f} seconds")
-            f.write("\n-------\n")        
+        # with open("eval_results.txt", "a") as f:
+        #     f.write("Evaluating AFS : " + model_name + "\n")
+        #     for feature in good_features:
+        #         f.write(f"{feature},")
+        #     f.write("\n")
+        #     f.write(f"AFS execution time: {afs_execution_time:.2f} seconds\n")
+        #     f.write("-------\n")   
+        #     f.write("Evaluating pure SFS : " + model_name + "\n")
+        #     for feature in sfs_features:
+        #         f.write(f"{feature},")
+        #     f.write("\n")
+        #     f.write(f"SFS execution time: {sfs_execution_time:.2f} seconds\n")
+        #     f.write("-------\n")        
 
 end_time = perf_counter()
 total_execution_time = end_time - start_time
-print(f"Total execution time: {total_execution_time:.2f} seconds")
-with open("eval_results.txt", "a") as f:
-    f.write(f"Total execution time: {total_execution_time:.2f} seconds")
+print(f"Total execution time: {total_execution_time:.2f} seconds\n")
+# with open("eval_results.txt", "a") as f:
+#     f.write(f"Total execution time: {total_execution_time:.2f} seconds\n")

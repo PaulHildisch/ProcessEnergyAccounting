@@ -195,12 +195,12 @@ def dynamic_model(model_name, num_features, window_size):
     cnn_model = Sequential([
 
         layers.Input(shape=(num_features, window_size)), # (num_features, window_size)
-        layers.Conv1D(32, kernel_size=num_features, padding='same', activation="relu"),
+        layers.Conv1D(32, kernel_size=5, padding='same', activation="relu"),
         layers.BatchNormalization(),
 
-        layers.Conv1D(32, kernel_size=num_features, padding='same', activation="relu"),
+        layers.Conv1D(32, kernel_size=5, padding='same', activation="relu"),
         layers.BatchNormalization(),
-        
+
         layers.Flatten(),
         layers.Dense(32, activation='relu'),
         layers.Dense(1)
@@ -223,4 +223,5 @@ mlp_model = MLPRegressor(hidden_layer_sizes=(128,32,16),
                     random_state=42)
 
 #pipeline("AUTO", features, general_features, "cnn", "SAREK", attribute=False)
-pipeline("GENERAL", features, general_features, "cnn", "SAREK", attribute=False)
+#pipeline("GENERAL", features, general_features, "cnn", "SAREK", attribute=False)
+pipeline("GENERAL", features, general_features, "cnn", "MIXED_UNKOWN_TYPE", attribute=False)
