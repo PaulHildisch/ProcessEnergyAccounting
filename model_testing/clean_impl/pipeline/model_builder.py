@@ -8,13 +8,14 @@ from sklearn.metrics import r2_score, mean_absolute_error
 
 class ModelBuilder():
 
-    def __init__(self, X_train, X_test, y_train, y_test, model, scaler):
+    def __init__(self, X_train, X_test, y_train, y_test, model, scaler,file_written=False):
         self.X_train = X_train
         self.X_test = X_test
         self.y_train = y_train
         self.y_test = y_test
         self.model = model
         self.scaler = scaler
+        self.file_written = file_written
 
     def _scale(self):
         self.X_train_scaled = self.scaler.fit_transform(self.X_train.values)
@@ -35,6 +36,12 @@ class ModelBuilder():
         print(f"  R² Score:  {r2:.4f}")
         print(f"  MAE:       {mae:.2f} Ws ({mae_pct:.2f}% of mean)")
         print("-" * 34)
+
+        if self.file_written:
+            with open("eval_results.txt", "a") as f:
+                f.write(f"  R² Score:  {r2:.4f}")
+                f.write(f"  MAE:       {mae:.2f} Ws ({mae_pct:.2f}% of mean)")
+                f.write("-" * 34)    
 
     #Extract the models interval_energy prediction for an idle interval
     def _idle_power(self):

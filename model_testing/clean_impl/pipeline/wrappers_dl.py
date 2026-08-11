@@ -11,15 +11,19 @@ from keras.wrappers import SKLearnRegressor
 
 # MLP Wrapper
 class SafeMLPWrapper(BaseEstimator, RegressorMixin):
-    def __init__(self,activation="relu", solver="adam", batch_size=256):
+    def __init__(self,activation="relu", solver="adam", batch_size=256, learning_rate_init=0.0001,
+                                max_iter=500,n_repeats=10):
         self.activation = activation
         self.solver = solver
         self.batch_size = batch_size
+        self.max_iter = max_iter
+        self.learning_rate_init = learning_rate_init
+        self.n_repeats = n_repeats
         self.model = MLPRegressor(hidden_layer_sizes=(128,32,16),
                             activation='relu',
                             solver='adam',
-                            learning_rate_init=0.0001,
-                            max_iter=500,
+                            learning_rate_init=self.learning_rate_init,
+                            max_iter=self.max_iter,
                             batch_size=batch_size,
                             early_stopping=True,    # Crucial for time-series stability
                             random_state=42)
@@ -29,7 +33,7 @@ class SafeMLPWrapper(BaseEstimator, RegressorMixin):
         self.model.fit(X, y)
         #training_fs_end_time = perf_counter()
         all_importances = permutation_importance(self, X, y,
-                                   n_repeats=10,
+                                   n_repeats=self.n_repeats,
                                    scoring='neg_mean_squared_error',
                                    random_state=42,
                                    n_jobs = -1
@@ -67,7 +71,7 @@ class SafeKerasWrapper(RegressorMixin, BaseEstimator):
         print(y.shape)
 
         all_importances = permutation_importance(self.model, X, y,
-                           n_repeats=5,
+                           n_repeats=1,
                            scoring='neg_mean_squared_error',
                            random_state=42,
                            n_jobs = -1)
@@ -76,7 +80,7 @@ class SafeKerasWrapper(RegressorMixin, BaseEstimator):
         #print(np.array(all_importances))
 
         self.feature_importances_ = all_importances
-        #print(self.feature_importances_ )
+        print(self.feature_importances_ )
         
         #training_fs_time = training_fs_end_time - training_fs_start_time
         #print(f"Training feature selection time: {training_fs_time:.2f} seconds")

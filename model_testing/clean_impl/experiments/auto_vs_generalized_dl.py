@@ -1,3 +1,6 @@
+from time import perf_counter
+start_time = perf_counter()
+
 import pandas as pd
 from sklearn.pipeline import Pipeline
 from sklearn.feature_selection import VarianceThreshold, SelectFromModel
@@ -8,17 +11,24 @@ from sklearn.feature_selection import SequentialFeatureSelector
 from sklearn.neural_network import MLPRegressor
 
 from keras import layers, optimizers, callbacks, Sequential
-import os
+import os,warnings
 
 # Custom imports
 from model_testing.clean_impl.pipeline.universal_filtering import CustomSpearmanFilter
 from model_testing.clean_impl.pipeline.wrappers_dl import SafeMLPWrapper, SafeKerasWrapper
+from sklearn.exceptions import ConvergenceWarning
 from model_testing.clean_impl.pipeline.model_builder import ModelBuilder
 from model_testing.clean_impl.pipeline.model_builder_keras import KerasModelBuilder
 
 from model_testing.clean_impl.pipeline.preprocessing import Preprocessor
 from model_testing.clean_impl.plotting.plotting import Plotter
 from model_testing.clean_impl.plotting.plotting import plot_dataset
+
+# Supress normal Tensorflow warnings (or Sklearn MLP Convergence Warning)
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+warnings.filterwarnings("ignore",category=ConvergenceWarning)
+
 
 #This is an experimental pipeline that compares model performance of general features vs automatic features vs sfs features
 #This will use A LOT of RAM because all data sets are loaded at the same time
@@ -187,11 +197,11 @@ for name ,value in data_map.items():
         small_pipiline_used=False
         fs_model = None
         if model_name == "mlp":
-            fs_model = SafeMLPWrapper(batch_size=256)
+            fs_model = SafeMLPWrapper(batch_size=256,n_repeats=10)
         else:
             fs_model = SafeKerasWrapper(dynamic_model(model_name,num_features,1))
             small_pipiline_used=True
-            
+        afs_start_time = perf_counter()
         print("Evaluating auto : " + model_name)     
         automatic_feature_selection = Pipeline(steps=[
                 ('variance', VarianceThreshold(threshold=0.01)),
@@ -212,6 +222,7 @@ for name ,value in data_map.items():
         good_features = automatic_feature_selection.get_feature_names_out().tolist()
         print("Selected auto columns:")
         print(good_features)
+        afs_end_time = perf_counter()
         X_train_auto = X_train_auto_FULL[good_features]
 
         #Auto test set | Has to be recalcualted every round because results depend on the selected model
@@ -241,7 +252,12 @@ for name ,value in data_map.items():
         #plotter.plot_and_save("auto_gen_plots/", "pred_auto_" + PNG_NAME +'_' + model_name)
         plotter.plot_and_save("", "pred_auto_" + PNG_NAME +'_' + model_name)
         #uncomment for sfs
+        afs_execution_time = sfs_end_time - sfs_start_time
+        print(f"AFS execution time: {afs_execution_time:.2f} seconds")
+        if model_name == "mlp":
+            fs_model = SafeMLPWrapper(batch_size=256,learning_rate_init=0.001, max_iter=100,n_repeats=2)
         print("Evaluating pure SFS : " + model_name)     
+        sfs_start_time = perf_counter()
         sfs_selector = Pipeline(steps=[
             ('scaler', StandardScaler()),
             ('sfs', SequentialFeatureSelector(
@@ -261,7 +277,7 @@ for name ,value in data_map.items():
         sfs_features = sfs_selector.get_feature_names_out().tolist()
         print("Selected SFS columns:")
         print(sfs_features)
-        
+        sfs_end_time = perf_counter()
         # Subset the unscaled data using the SFS selected features
         X_train_sfs = X_train_auto_FULL[sfs_features]
         # Preprocess test data
@@ -287,7 +303,26 @@ for name ,value in data_map.items():
         #plotter.plot_and_save("auto_gen_plots/", "pred_auto_" + PNG_NAME +'_' + model_name)
         plotter_sfs.plot_and_save("", "pred_sfs_" + PNG_NAME + '_' + model_name)
 
+        sfs_execution_time = sfs_end_time - sfs_start_time
+        print(f"SFS execution time: {sfs_execution_time:.2f} seconds")
 
+        ##If needed: Store the results in a file if you don't want to wait for output.
+        with open("eval_results.txt", "a") as f:
+            f.write("Evaluating AFS : " + model_name + "\n")
+            for feature in good_features:
+                f.write(f"{feature},")
+            f.write("\n")
+            f.write(f"AFS execution time: {afs_execution_time:.2f} seconds")
+            f.write("\n-------\n")   
+            f.write("Evaluating pure SFS : " + model_name + "\n")
+            for feature in sfs_features:
+                f.write(f"{feature},")
+            f.write("\n")
+            f.write(f"SFS execution time: {sfs_execution_time:.2f} seconds")
+            f.write("\n-------\n")        
 
-
-
+end_time = perf_counter()
+total_execution_time = end_time - start_time
+print(f"Total execution time: {total_execution_time:.2f} seconds")
+with open("eval_results.txt", "a") as f:
+    f.write(f"Total execution time: {total_execution_time:.2f} seconds")

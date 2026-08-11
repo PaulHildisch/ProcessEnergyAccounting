@@ -23,33 +23,33 @@ from model_testing.clean_impl.plotting.plotting import plot_dataset
 
 #This is an experimental pipeline that compares model performance of general features vs automatic features vs sfs features
 #This will use A LOT of RAM because all data sets are loaded at the same time
-
+other_path = "../../ProcessEnergyAccounting/"
 
 train_ampliseq = [
-        pd.read_parquet("runs/nfcore-20260703T215123Z/datasets/ampliseq_1_0607.parquet"),
-        pd.read_parquet("runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet"),
-        pd.read_parquet("runs/nfcore-20260708T125031Z/datasets/ampliseq_triple_run.parquet")
+        pd.read_parquet(other_path+"runs/nfcore-20260703T215123Z/datasets/ampliseq_1_0607.parquet"),
+        pd.read_parquet(other_path+"runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet"),
+        pd.read_parquet(other_path+"runs/nfcore-20260708T125031Z/datasets/ampliseq_triple_run.parquet")
 
 ]
-test_ampliseq = pd.read_parquet("runs/nfcore-20260706T112716Z/datasets/ampliseq_3_0707.parquet")
+test_ampliseq = pd.read_parquet(other_path+"runs/nfcore-20260706T112716Z/datasets/ampliseq_3_0707.parquet")
 
 train_sarek = [
-    pd.read_parquet("runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet"),
-    pd.read_parquet("runs/nfcore-20260702T193504Z/datasets/sarek_2_0207.parquet")
+    pd.read_parquet(other_path+"runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet"),
+    pd.read_parquet(other_path+"runs/nfcore-20260702T193504Z/datasets/sarek_2_0207.parquet")
 
 ]
-test_sarek = pd.read_parquet("runs/nfcore-20260708T212252Z/datasets/sarek3_0907.parquet")
+test_sarek = pd.read_parquet(other_path+"runs/nfcore-20260708T212252Z/datasets/sarek3_0907.parquet")
 
 #Be careful what you uncomment -> test data must not be in test data
 train_mixed_unseen_type2 = [
-    pd.read_parquet("runs/nfcore-20260704T110043Z/datasets/chipseq_2_0607.parquet"),
-    pd.read_parquet("runs/nfcore-20260701T114734Z/datasets/rnaseq_1_02027.parquet"),
-    #pd.read_parquet("runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet"),
-    pd.read_parquet("runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet")
+    pd.read_parquet(other_path+"runs/nfcore-20260704T110043Z/datasets/chipseq_2_0607.parquet"),
+    pd.read_parquet(other_path+"runs/nfcore-20260701T114734Z/datasets/rnaseq_1_02027.parquet"),
+    #pd.read_parquet(other_path+"runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet"),
+    pd.read_parquet(other_path+"runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet")
 
 ]
-#test_mixed_unseen_type = pd.read_parquet("runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet")
-test_mixed_unseen_type2 = pd.read_parquet("runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet")
+#test_mixed_unseen_type = pd.read_parquet(other_path+"runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet")
+test_mixed_unseen_type2 = pd.read_parquet(other_path+"runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet")
 
 # test_stressng = pd.read_parquet("stressng_test3_10_.parquet")
 # train_stressng = pd.read_parquet("stressng_train0_3_.parquet")
