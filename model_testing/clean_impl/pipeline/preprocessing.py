@@ -94,7 +94,7 @@ class Preprocessor:
         self._extract_interval_energy()
         self._aggregate()
         self._save_unaggregated_data()
-        self._remove_outliers(window=5, max_deviation_energy=  150)# adjust this to the node
+        self._remove_outliers(window=5, max_deviation_energy=  150)# adjust this to the node and to the aggregation settings!!
 
         X = self.df_agg
         y = self.interval_energy_all

@@ -17,7 +17,7 @@ import pandas as pd
 #     "ampliseq_2_0607" : pd.read_parquet("runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet"),
 
 # }
-data =  {
+#data =  {
     # "amp1" : pd.read_parquet("runs/cpu06 daten/altes monitoring/cpu06_ampliseq1_old_mon.parquet"),
     # "amp2" : pd.read_parquet("runs/cpu06 daten/altes monitoring/cpu06_ampliseq2_old_mon.parquet"),
     # "amp3" : pd.read_parquet("runs/cpu06 daten/altes monitoring/cpu06_ampliseq3_old_mon.parquet"),
@@ -31,8 +31,22 @@ data =  {
     # "sarek3" : pd.read_parquet("runs/cpu06 daten/altes monitoring/cpu06_sarek3_old_mon.parquet"),
     # "sarek_new_feat" : pd.read_parquet("runs/cpu06 daten/new monitoring/cpu06_sarek1_new_mon.parquet")
     #"sarek_new_feat" : pd.read_parquet("sarek1.parquet")
-    "ampliseq_new_feat" : pd.read_parquet("ampliseq1_new_feat.parquet")
+    #"ampliseq_new_feat" : pd.read_parquet("ampliseq1_new_feat.parquet")
+#}
+
+data = {
+    "ampliseq1_new_feat_s12" : pd.read_parquet("ampliseq1_new_feat.parquet"),
+    "ampliseq2_new_feat_s12" : pd.read_parquet("ampliseq2_new_feat.parquet"),
+    "ampliseq3_new_feat_s12" : pd.read_parquet("ampliseq3_new_feat.parquet"),
+    "ampliseq4_new_feat_s12" : pd.read_parquet("ampliseq4_new_feat.parquet"),
+    "ampliseq5_new_feat_s12" : pd.read_parquet("ampliseq5_new_feat.parquet"),
+    "ampliseq6_new_feat_s12" : pd.read_parquet("ampliseq6_new_feat.parquet"),
+    "sarek1_new_feat_s12": pd.read_parquet("sarek1_new_feat.parquet"),
+    "sarek2_new_feat_s12": pd.read_parquet("sarek2_new_feat.parquet"),
+    "sarek3_new_feat_s12": pd.read_parquet("sarek3_new_feat.parquet")
 }
+
+
 #Not important for the actual visualization but we make use of our Preprocessing class which expects features
 features = [
     "delta_cpu_ns",
@@ -64,4 +78,4 @@ for name , df in data.items():
     preprocessor_train = Preprocessor(df,features)
     #Preprocess entire dataset
     _, y_train, t_train, _ = preprocessor_train.preprocess_no_split()
-    plot_dataset(t_train, y_train, "data_inspection/siena12_new/" +name +".png")
+    plot_dataset(t_train, y_train, "data_inspection/siena12_new_220w_outlier/" +name)
