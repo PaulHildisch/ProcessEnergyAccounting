@@ -64,6 +64,8 @@ def select_data(dataset_name):
 
     elif dataset_name == "MIXED_UNKOWN_TYPE":
         #Be careful with uncommenting: train data must not contain test data
+        #This workflow combination seems to be too large for the pure SHAP attribution (The other workflow combinations above work fine) 
+        #EBM attribution also works for this very large workflow set since it is more efficient
         train_workflows = [
             pd.read_parquet("runs/nfcore-20260704T110043Z/datasets/chipseq_2_0607.parquet"),
             pd.read_parquet("runs/nfcore-20260701T114734Z/datasets/rnaseq_1_02027.parquet"),
@@ -170,7 +172,7 @@ def pipeline(mode, full_features, general_features, model ,dataset_name, attribu
 
         elif isinstance(model, SafeEBMWrapper):
             attributor = ProcessAttributorEBM( builder.X_test_scaled, builder.model.model, builder.scaler)
-            attributor.attribute(X_test_unaggregated,selected_features,t_test.values , "EBM")
+            attributor.attribute(X_test_unaggregated,selected_features,t_test.values , "EBM_NEW")
             
         else:
             print("Attribution for this model type is not yet supported")
@@ -183,5 +185,5 @@ if __name__ == "__main__":
     #model = SafeEBMWrapper()
     #model = Ridge(alpha=1.0)
     #model = Lasso(alpha=0.1)
-    pipeline("AUTO", features, general_features, model, "SAREK_S12_NEW_FEAT", attribute=True)
+    pipeline("AUTO", features, general_features, model, "AMPLISEQ", attribute=True)
 
