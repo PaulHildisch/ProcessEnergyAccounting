@@ -23,7 +23,7 @@ class KerasModelBuilder():
                 optimizer=standard_optimizer, 
                 callbacks=standard_callbacks,
                 window_size = 1,
-                file_written=False):
+                log_file_path=None):
         self.X_train = X_train
         self.X_test = X_test
         self.y_train = y_train
@@ -35,7 +35,7 @@ class KerasModelBuilder():
         self.optimizer = optimizer
         self.callbacks = callbacks
         self.window_size = window_size
-        self.file_written = file_written
+        self.log_file_path = log_file_path
 
     def _scale(self):
         self.X_train_scaled = self.scaler.fit_transform(self.X_train.values)
@@ -69,8 +69,8 @@ class KerasModelBuilder():
         print(f"  MAE:       {mae:.2f} Ws ({mae_pct:.2f}% of mean)")
         print("-" * 34)
 
-        if self.file_written:
-            with open("eval_results.txt", "a") as f:
+        if self.log_file_path:
+            with open(self.log_file_path, "a") as f:
                 f.write(f"  R² Score:  {r2:.4f}\n")
                 f.write(f"  MAE:       {mae:.2f} Ws ({mae_pct:.2f}% of mean)\n")
                 f.write("-" * 34 + "\n")  
@@ -127,14 +127,14 @@ from sklearn.metrics import r2_score, mean_absolute_error
 
 class ModelBuilderMLP():
 
-    def __init__(self, X_train, X_test, y_train, y_test, model, scaler,file_written=False):
+    def __init__(self, X_train, X_test, y_train, y_test, model, scaler,log_file_path=None):
         self.X_train = X_train
         self.X_test = X_test
         self.y_train = y_train
         self.y_test = y_test
         self.model = model
         self.scaler = scaler
-        self.file_written = file_written
+        self.log_file_path = log_file_path
 
     def _scale(self):
         self.X_train_scaled = self.scaler.fit_transform(self.X_train.values)
@@ -156,11 +156,11 @@ class ModelBuilderMLP():
         print(f"  MAE:       {mae:.2f} Ws ({mae_pct:.2f}% of mean)")
         print("-" * 34)
 
-        if self.file_written:
-            with open("eval_results.txt", "a") as f:
+        if self.log_file_path:
+            with open(self.log_file_path, "a") as f:
                 f.write(f"  R² Score:  {r2:.4f}\n")
                 f.write(f"  MAE:       {mae:.2f} Ws ({mae_pct:.2f}% of mean)\n")
-                f.write("-" * 34 + "\n")    
+                f.write("-" * 34 + "\n")   
 
     #Extract the models interval_energy prediction for an idle interval
     def _idle_power(self):
