@@ -33,7 +33,7 @@ class ProcessAttributorSHAP:
         #Since the error we observed was small we deemed it acceptable 
         #When using the automatically selected features, this error also disappeard
         #We therefore strongly recommend using automatic selection when creating attributions
-        shap_vals = self.explainer.shap_values(self.X_test)#, check_additivity=False)
+        shap_vals = self.explainer.shap_values(self.X_test, check_additivity=False)
 
         #In theory the shap values should be positive anyway since -> since SHAP values are calculated from the idle power upwards
         #Since we use an idle prediction this is not 100% correct, because the prediction will likely not be 100% equal with the true hidden idle state
