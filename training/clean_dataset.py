@@ -1,47 +1,40 @@
 import pandas as pd
 import argparse
-from sklearn.preprocessing import (StandardScaler)
-from sklearn.model_selection import (train_test_split)
 
-parser = argparse.ArgumentParser()
-parser.add_argument("-f", "--filepath")
-parser.add_argument("--features")
-parser.add_argument("--pid-split", action="store_true", default=False)
+# Use actual module provided by Johannes 
+from preprocessor import Preprocessor
 
-args = parser.parse_args()
+def main(args: tuple) -> None:
+    filename = args.filepath.split('.')[0]
+    features = args.features
 
-filename = args.filepath.split('.')[0]
+    df = pd.read_parquet(args.filepath)
+    preprocessor = Preprocessor(df, features)
 
-df = pd.read_parquet(args.filepath)
+    df_agg, interval_energy_all, t, df_unagg = preprocessor.preprocess_no_split()
+    interval_energy_all = pd.DataFrame(interval_energy_all, index=t)
 
-# To make this dynamic we have to save the features used to train the model and read them here.
-# features = ["delta_cpu_ns", "delta_cycles", "delta_instructions", "delta_cache_misses", "delta_branch_instructions", "delta_io_bytes", "delta_net_send_bytes", "context_switches", "syscall_count", "delta_rss_memory", "syscall_class_file", "syscall_class_network", "syscall_class_memory", "syscall_class_process", "syscall_class_other", "syscall_class_sched", "syscall_class_signal", "syscall_class_time",]
-features = ['context_switches', 'syscall_class_network', 'delta_branch_instructions', 'syscall_class_time']
-if args.features:
-    print(f"--features is not implemented. Using hardcoded values: ({features})")
+    if args.pid_split:
+        df_unagg = df_unagg.reset_index().set_index(["_time","pid"])[features + ['pid_label', 'base_name']]
+        df_unagg = df_unagg[(df_unagg[features] > 0).any(axis=1)]
+        df_unagg.to_parquet(f"{filename}-preprocessed-pid.parquet")
+        print(f"Saved unscaled, per pid data to \"{filename}-preprocessed-pid.parquet\"")
+    else:
+        df_agg.to_parquet(f"{filename}-preprocessed-aggregated.parquet")
+        print(f"Saved unscaled, aggregated data to \"{filename}-preprocessed-aggregated.parquet\"")
 
-df["_time"] = pd.to_datetime(df["_time"]).dt.round("1ms")
+    interval_energy_all.to_parquet(f"{filename}-preprocessed-targets.parquet")
+    print(f"Saved unscaled target values (interval energy) to \"{filename}-preprocessed-targets.parquet\"")
 
-for feature in features:
-    if feature not in df.columns:
-        print(f"Feature {feature} was selected but is not present in dataset. Removing from selection.")
-        features.remove(feature)
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-f", "--filepath", required=True)
+    parser.add_argument("--features", 
+                        nargs='+', 
+                        type=str,
+                        default=['context_switches', 'syscall_class_network', 'delta_branch_instructions', 'syscall_class_time'])
+    parser.add_argument("--pid-split", action="store_true", default=False)
 
-df[features] = df[features].fillna(0)
 
-interval_energy_all = (
-    df[["_time", "interval_energy"]]
-    .dropna()
-    .drop_duplicates("_time")
-    .set_index("_time")["interval_energy"]
-)
-df = df[df["_time"].isin(interval_energy_all.index)]
-
-interval_energy_all = interval_energy_all.sort_index()
-
-#aggregation
-df_agg = df.groupby("_time")[features].sum()
-
-out = pd.concat([interval_energy_all, df_agg], axis=1)
-out.to_parquet(f"{filename}-cleaned.parquet")
-print(f"Saving unscaled dataset with features \n{features}\nto \"{filename}-cleaned.parquet\"")
+    args = parser.parse_args()
+    main(args)
