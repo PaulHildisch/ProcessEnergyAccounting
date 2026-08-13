@@ -132,7 +132,7 @@ for name ,value in data_map.items():
         #"SgD" :SGDRegressor(loss= "squared_error", penalty='l2', shuffle= False),
         "Ridge" : Ridge(alpha=1.0),
         "Lasso" : Lasso(alpha=0.1),
-        #"Lasso_Cvxpy": CvxpyMimicLasso(l1_penalty=0.1),
+        "Lasso_Cvxpy": CvxpyMimicLasso(l1_penalty=0.1), # Lasso from original paper?
         "bayes" : linear_model.BayesianRidge(),
         "EBM" : SafeEBMWrapper()
 
