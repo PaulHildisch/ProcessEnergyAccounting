@@ -37,73 +37,74 @@ def evaluate_model(model, training_data):
     return r2, mae
 
 
-def feature_selection(df, model, feature_candidates, min_gain=0.01):
-    # ==== SEQUENTIAL FORWARD SELECTION ====
-    selected = []
-    remaining = list(feature_candidates)
-    best_r2 = -np.inf
-    results_log = []
+# def feature_selection(df, model, feature_candidates, min_gain=0.01):
+#     # ==== SEQUENTIAL FORWARD SELECTION ====
+#     selected = []
+#     remaining = list(feature_candidates)
+#     best_r2 = -np.inf
+#     results_log = []
 
-    print("=== Sequential Forward Selection ===\n")
+#     print("=== Sequential Forward Selection ===\n")
 
-    while remaining:
-        step_best_r2 = -np.inf
-        step_best_feature = None
-        step_best_mae = None
+#     while remaining:
+#         step_best_r2 = -np.inf
+#         step_best_feature = None
+#         step_best_mae = None
 
-        for feature in remaining:
-            candidate_set = selected + [feature]
-            training_data = clean_dataset(df, candidate_set)
+#         for feature in remaining:
+#             candidate_set = selected + [feature]
+#             training_data = clean_dataset(df, candidate_set)
 
-            model.fit(training_data["x"]["train"], training_data["y"]["train"])
-            r2, mae = evaluate_model(model=model, training_data=training_data)
+#             model.fit(training_data["x"]["train"], training_data["y"]["train"])
+#             r2, mae = evaluate_model(model=model, training_data=training_data)
             
-            if r2 is None:
-                continue
+#             if r2 is None:
+#                 continue
 
-            print(
-                f"  [{'+'.join(candidate_set)}]  "
-                f"R²={r2:.4f}  "
-                f"MAE%={100 * mae / training_data["y"]["test"].mean():.2f}%"
-            )
+#             print(
+#                 f"  [{'+'.join(candidate_set)}]  "
+#                 f"R²={r2:.4f}  "
+#                 f"MAE%={100 * mae / training_data["y"]["test"].mean():.2f}%"
+#             )
 
-            if r2 > step_best_r2:
-                step_best_r2 = r2
-                step_best_feature = feature
-                step_best_mae = mae
+#             if r2 > step_best_r2:
+#                 step_best_r2 = r2
+#                 step_best_feature = feature
+#                 step_best_mae = mae
 
-        gain = step_best_r2 - best_r2
-        if step_best_feature is None or gain < min_gain:
-            print(f"\nStopping: best gain {gain:.4f} < min_gain {min_gain}")
-            break
+#         gain = step_best_r2 - best_r2
+#         if step_best_feature is None or gain < min_gain:
+#             print(f"\nStopping: best gain {gain:.4f} < min_gain {min_gain}")
+#             break
 
-        selected.append(step_best_feature)
-        remaining.remove(step_best_feature)
-        best_r2 = step_best_r2
+#         selected.append(step_best_feature)
+#         remaining.remove(step_best_feature)
+#         best_r2 = step_best_r2
 
-        mean_energy = training_data["y"]["test"].mean()
-        results_log.append(
-            {
-                "step": len(selected),
-                "added": step_best_feature,
-                "features": list(selected),
-                "r2": step_best_r2,
-                "mae_pct": 100 * step_best_mae / mean_energy,
-            }
-        )
+#         mean_energy = training_data["y"]["test"].mean()
+#         results_log.append(
+#             {
+#                 "step": len(selected),
+#                 "added": step_best_feature,
+#                 "features": list(selected),
+#                 "r2": step_best_r2,
+#                 "mae_pct": 100 * step_best_mae / mean_energy,
+#             }
+#         )
 
-        print(
-            f"\n→ Step {len(selected)}: added '{step_best_feature}'  "
-            f"R²={step_best_r2:.4f}  "
-            f"MAE%={100 * step_best_mae / mean_energy:.2f}%"
-        )
-        print(f"  Selected so far: {selected}\n")
+#         print(
+#             f"\n→ Step {len(selected)}: added '{step_best_feature}'  "
+#             f"R²={step_best_r2:.4f}  "
+#             f"MAE%={100 * step_best_mae / mean_energy:.2f}%"
+#         )
+#         print(f"  Selected so far: {selected}\n")
 
-    return selected
+#     return selected
 
 def main(args):
     print("Loading data...")
     df = pd.read_parquet(args.dataSource)
+    df = df.set_index('_time')
     selected_features = df.columns[1:]
     
     print("Training new Model...")

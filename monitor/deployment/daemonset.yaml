@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: energy-monitor
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: energy-monitor
+  template:
+    metadata:
+      labels:
+        app: energy-monitor
+    spec:
+      serviceAccountName: default
+      hostPID: true
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+        - name: energy-monitor
+          image: fomopi/energy-monitor:latest
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+          env:
+            - name: K8S_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              ARGS_FILE="/etc/aggregator-args/$K8S_NODE_NAME"
+              [ -f "$ARGS_FILE" ] || ARGS_FILE="/etc/aggregator-args/default"
+              exec python delta_aggregator.py $(cat "$ARGS_FILE")
+          volumeMounts:
+            - name: aggregator-args
+              mountPath: /etc/aggregator-args
+              readOnly: true
+            - name: sys-fs-cgroup
+              mountPath: /sys/fs/cgroup
+            - name: proc
+              mountPath: /proc
+            - name: sys
+              mountPath: /sys
+            - name: lib-modules
+              mountPath: /lib/modules
+              readOnly: true
+            - name: usr-src
+              mountPath: /usr/src
+              readOnly: true
+            - name: k3s-kubeconfig
+              mountPath: /etc/rancher/k3s/k3s.yaml
+              readOnly: true
+      volumes:
+        - name: aggregator-args
+          configMap:
+            name: delta-aggregator-args
+        - name: sys-fs-cgroup
+          hostPath:
+            path: /sys/fs/cgroup
+            type: Directory
+        - name: proc
+          hostPath:
+            path: /proc
+            type: Directory
+        - name: sys
+          hostPath:
+            path: /sys
+            type: Directory
+        - name: lib-modules
+          hostPath:
+            path: /lib/modules
+            type: Directory
+        - name: usr-src
+          hostPath:
+            path: /usr/src
+            type: DirectoryOrCreate
+        - name: k3s-kubeconfig
+          hostPath:
+            path: /etc/rancher/k3s/k3s.yaml
+            type: File
