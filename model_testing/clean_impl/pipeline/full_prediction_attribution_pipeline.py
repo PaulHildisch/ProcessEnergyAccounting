@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.pipeline import Pipeline
 from sklearn.feature_selection import VarianceThreshold, SelectFromModel
@@ -15,7 +16,7 @@ from model_testing.clean_impl.pipeline.wrappers import SafeEBMWrapper
 from model_testing.clean_impl.pipeline.shapley_improved import ProcessAttributorSHAP
 from model_testing.clean_impl.pipeline.shapley_improved import ProcessAttributorEBM
 
-#Full feature set
+#Full original feature set
 features = [
     "delta_cpu_ns",
     "delta_io_bytes",
@@ -39,6 +40,8 @@ features = [
     "delta_branch_instructions",
 ]
 
+
+
 general_features =  ['delta_io_bytes', 'context_switches', 'delta_cpu_ns', 'delta_net_send_bytes', 'syscall_count']
 
 
@@ -61,6 +64,8 @@ def select_data(dataset_name):
 
     elif dataset_name == "MIXED_UNKOWN_TYPE":
         #Be careful with uncommenting: train data must not contain test data
+        #This workflow combination seems to be too large for the pure SHAP attribution (The other workflow combinations above work fine) 
+        #EBM attribution also works for this very large workflow set since it is more efficient
         train_workflows = [
             pd.read_parquet("runs/nfcore-20260704T110043Z/datasets/chipseq_2_0607.parquet"),
             pd.read_parquet("runs/nfcore-20260701T114734Z/datasets/rnaseq_1_02027.parquet"),
@@ -71,6 +76,29 @@ def select_data(dataset_name):
         #test_mixed_unseen_type = pd.read_parquet("runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet")
         test_workflows = pd.read_parquet("runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet")
 
+    #Recorded with an extended feature set | is used for the feature comparison expermiment
+    elif dataset_name == "AMPLISEQ_S12_NEW_FEAT":
+        train_workflows = [
+            pd.read_parquet("ampliseq1_new_feat.parquet"),
+            pd.read_parquet("ampliseq2_new_feat.parquet"),
+            pd.read_parquet("ampliseq3_new_feat.parquet")
+        ]
+        test_workflows = pd.read_parquet("ampliseq4_new_feat.parquet")
+
+    #Recorded with an extended feature set | | is used for the feature comparison expermiment
+    elif dataset_name == "SAREK_S12_NEW_FEAT":
+        train_workflows = [
+                pd.read_parquet("sarek1_new_feat.parquet"),
+                pd.read_parquet("sarek2_new_feat.parquet")
+        ]
+        test_workflows = pd.read_parquet("sarek3_new_feat.parquet")
+
+    elif dataset_name == "MIXED_UNKOWN_TYPE_S12_NEW_FEAT":
+        train_workflows =[
+            pd.read_parquet("rnaseq1_new_feat.parquet"),
+            pd.read_parquet("ampliseq1_new_feat.parquet")
+        ]
+        test_workflows = pd.read_parquet("sarek1_new_feat.parquet")
 
     #only local debugging
     elif dataset_name == "DEBUG_LOCAL":
@@ -99,6 +127,7 @@ def automatic_selection_prep(training_data, full_features, model):
         ('decorrelate', CustomSpearmanFilter(threshold=0.80)),
         ('scaler', StandardScaler()),
         ('select_features', SelectFromModel(model, threshold='0.5*median'))
+        #('select_features', SelectFromModel(model, threshold=-np.inf, max_features=10))
     ])
     automatic_feature_selection.set_output(transform="pandas")
     automatic_feature_selection.fit_transform(X_train_FULL, y_train)
@@ -122,6 +151,7 @@ def preprocess_test(test_data, selected_features):
 
 def pipeline(mode, full_features, general_features, model ,dataset_name, attribute=True):
     training_data, test_data = select_data(dataset_name)
+    
     #Does the model need to be copied?
     if mode == "AUTO":
         selected_features,X_train, y_train =  automatic_selection_prep(training_data, full_features, model)
@@ -149,17 +179,18 @@ def pipeline(mode, full_features, general_features, model ,dataset_name, attribu
 
         elif isinstance(model, SafeEBMWrapper):
             attributor = ProcessAttributorEBM( builder.X_test_scaled, builder.model.model, builder.scaler)
-            attributor.attribute(X_test_unaggregated,selected_features,t_test.values , "EBM")
+            attributor.attribute(X_test_unaggregated,selected_features,t_test.values , "EBM_NEW")
             
         else:
             print("Attribution for this model type is not yet supported")
     else:
         print("Skipping attribution was selected!")
 
-#Choose any scikit model, but attribution is only supported for RF and EBM 
-model = RandomForestRegressor(n_estimators=100,  n_jobs=-1, random_state=42)
-#model = SafeEBMWrapper()
-#model = Ridge(alpha=1.0)
-#model = Lasso(alpha=0.1)
-pipeline("AUTO", features, general_features, model, "DEBUG_LOCAL", attribute=True)
+if __name__ == "__main__":
+    #Choose any scikit model, but attribution is only supported for RF and EBM 
+    model = RandomForestRegressor(n_estimators=100,  n_jobs=-1, random_state=42)
+    #model = SafeEBMWrapper()
+    #model = Ridge(alpha=1.0)
+    #model = Lasso(alpha=0.1)
+    pipeline("AUTO", features, general_features, model, "AMPLISEQ", attribute=True)
 
