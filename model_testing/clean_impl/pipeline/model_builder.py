@@ -33,7 +33,7 @@ class ModelBuilder():
         mae_pct = (mae / mean_energy) * 100
         
         print(f"  R² Score:  {r2:.4f}")
-        print(f"  MAE:       {mae:.2f} Wh ({mae_pct:.2f}% of mean)")
+        print(f"  MAE:       {mae:.2f} Ws ({mae_pct:.2f}% of mean)")
         print("-" * 34)
 
     #Extract the models interval_energy prediction for an idle interval
@@ -41,7 +41,7 @@ class ModelBuilder():
         zero_activity_interval = np.zeros((1, len(self.X_test_scaled[0])))
         zero_activity_interval = self.scaler.transform(zero_activity_interval)
         self.learned_idle_power = self.model.predict(zero_activity_interval)[0]
-        print(f"The model's learned baseline idle interval energy is: {self.learned_idle_power:.2f} Wh")
+        print(f"The model's learned baseline idle interval energy is: {self.learned_idle_power:.2f} Ws")
         print("-" * 34)
         print("/n")
 
