@@ -35,15 +35,16 @@ import pandas as pd
 #}
 
 data = {
-    "ampliseq1_new_feat_s12" : pd.read_parquet("ampliseq1_new_feat.parquet"),
-    "ampliseq2_new_feat_s12" : pd.read_parquet("ampliseq2_new_feat.parquet"),
-    "ampliseq3_new_feat_s12" : pd.read_parquet("ampliseq3_new_feat.parquet"),
-    "ampliseq4_new_feat_s12" : pd.read_parquet("ampliseq4_new_feat.parquet"),
-    "ampliseq5_new_feat_s12" : pd.read_parquet("ampliseq5_new_feat.parquet"),
-    "ampliseq6_new_feat_s12" : pd.read_parquet("ampliseq6_new_feat.parquet"),
-    "sarek1_new_feat_s12": pd.read_parquet("sarek1_new_feat.parquet"),
-    "sarek2_new_feat_s12": pd.read_parquet("sarek2_new_feat.parquet"),
-    "sarek3_new_feat_s12": pd.read_parquet("sarek3_new_feat.parquet")
+    # "ampliseq1_new_feat_s12" : pd.read_parquet("ampliseq1_new_feat.parquet"),
+    # "ampliseq2_new_feat_s12" : pd.read_parquet("ampliseq2_new_feat.parquet"),
+    # "ampliseq3_new_feat_s12" : pd.read_parquet("ampliseq3_new_feat.parquet"),
+    # "ampliseq4_new_feat_s12" : pd.read_parquet("ampliseq4_new_feat.parquet"),
+    # "ampliseq5_new_feat_s12" : pd.read_parquet("ampliseq5_new_feat.parquet"),
+    # "ampliseq6_new_feat_s12" : pd.read_parquet("ampliseq6_new_feat.parquet"),
+    # "sarek1_new_feat_s12": pd.read_parquet("sarek1_new_feat.parquet"),
+    # "sarek2_new_feat_s12": pd.read_parquet("sarek2_new_feat.parquet"),
+    # "sarek3_new_feat_s12": pd.read_parquet("sarek3_new_feat.parquet"),
+    "rnaseq1_new_feat_s12": pd.read_parquet("rnaseq1_new_feat.parquet")
 }
 
 
@@ -78,4 +79,4 @@ for name , df in data.items():
     preprocessor_train = Preprocessor(df,features)
     #Preprocess entire dataset
     _, y_train, t_train, _ = preprocessor_train.preprocess_no_split()
-    plot_dataset(t_train, y_train, "data_inspection/siena12_new_220w_outlier/" +name)
+    plot_dataset(t_train, y_train, "data_inspection/siena12_new_raw_with_outliers/" +name)

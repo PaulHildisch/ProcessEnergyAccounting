@@ -93,6 +93,13 @@ def select_data(dataset_name):
         ]
         test_workflows = pd.read_parquet("sarek3_new_feat.parquet")
 
+    elif dataset_name == "MIXED_UNKOWN_TYPE_S12_NEW_FEAT":
+        train_workflows =[
+            pd.read_parquet("rnaseq1_new_feat.parquet"),
+            pd.read_parquet("ampliseq1_new_feat.parquet")
+        ]
+        test_workflows = pd.read_parquet("sarek1_new_feat.parquet")
+
     #only local debugging
     elif dataset_name == "DEBUG_LOCAL":
         train_workflows = [

@@ -101,14 +101,15 @@ def evaluate(model, data):
     print('-'*150)
 
 if __name__ == "__main__":
-    #model = RandomForestRegressor(n_estimators=100,  n_jobs=-1, random_state=42)
+    model = RandomForestRegressor(n_estimators=100,  n_jobs=-1, random_state=42)
     #model = SafeEBMWrapper()
-    model = Ridge(alpha=1.0)
+    #model = Ridge(alpha=1.0)
     #model = Lasso(alpha=0.1)
-    print("Analyze SAREK")
-    evaluate(model, "SAREK_S12_NEW_FEAT")
+    # print("Analyze SAREK")
+    # evaluate(model, "SAREK_S12_NEW_FEAT")
 
-    print("Analyze AMPLISEQ")
-    evaluate(model, "AMPLISEQ_S12_NEW_FEAT")
+    # print("Analyze AMPLISEQ")
+    # evaluate(model, "AMPLISEQ_S12_NEW_FEAT")
 
-    #TODO add RNASeq
+    print("Analyze MIXED")
+    evaluate(model, "MIXED_UNKOWN_TYPE_S12_NEW_FEAT")
