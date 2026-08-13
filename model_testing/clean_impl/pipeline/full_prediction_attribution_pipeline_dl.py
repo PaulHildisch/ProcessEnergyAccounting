@@ -50,7 +50,7 @@ features = [
 
 general_features =  ['delta_io_bytes', 'context_switches', 'delta_cpu_ns', 'delta_net_send_bytes', 'syscall_count']
 other_path = "../../ProcessEnergyAccounting/"
-
+#other_path = ""
 def select_data(dataset_name):
     if dataset_name == "AMPLISEQ":
         train_workflows = [
@@ -80,6 +80,29 @@ def select_data(dataset_name):
         #test_mixed_unseen_type = pd.read_parquet(other_path+"runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet")
         test_workflows = pd.read_parquet(other_path+"runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet")
 
+    #Recorded with an extended feature set | is used for the feature comparison expermiment
+    elif dataset_name == "AMPLISEQ_S12_NEW_FEAT":
+        train_workflows = [
+            pd.read_parquet(other_path+"ampliseq1_new_feat.parquet"),
+            pd.read_parquet(other_path+"ampliseq2_new_feat.parquet"),
+            pd.read_parquet(other_path+"ampliseq3_new_feat.parquet")
+        ]
+        test_workflows = pd.read_parquet(other_path+"ampliseq4_new_feat.parquet")
+
+    #Recorded with an extended feature set | | is used for the feature comparison expermiment
+    elif dataset_name == "SAREK_S12_NEW_FEAT":
+        train_workflows = [
+                pd.read_parquet(other_path+"sarek1_new_feat.parquet"),
+                pd.read_parquet(other_path+"sarek2_new_feat.parquet")
+        ]
+        test_workflows = pd.read_parquet(other_path+"sarek3_new_feat.parquet")
+
+    elif dataset_name == "MIXED_UNKOWN_TYPE_S12_NEW_FEAT":
+        train_workflows =[
+            pd.read_parquet(other_path+"rnaseq1_new_feat.parquet"),
+            pd.read_parquet(other_path+"ampliseq1_new_feat.parquet")
+        ]
+        test_workflows = pd.read_parquet(other_path+"sarek1_new_feat.parquet")
 
     #only local debugging
     elif dataset_name == "DEBUG_LOCAL":
@@ -183,7 +206,7 @@ def pipeline(mode, full_features, general_features, model_name, dataset_name, at
     if attribute:
         if model_name == "mlp":
             attributor = ProcessAttributorSHAPMLP( builder.X_test_scaled, builder.model, builder.scaler)
-            attributor.attribute(X_test_unaggregated,selected_features,t_test.values , "MLP")
+            attributor.attribute(X_test_unaggregated,selected_features,t_test.values , "MLP_")
         else:
             print("Attribution for this model type is not yet supported. Please choose only MLP Attribution.")
     else:
@@ -222,6 +245,7 @@ mlp_model = MLPRegressor(hidden_layer_sizes=(128,32,16),
                     early_stopping=True,    # Crucial for time-series stability
                     random_state=42)
 
-#pipeline("AUTO", features, general_features, "cnn", "SAREK", attribute=False)
-#pipeline("GENERAL", features, general_features, "cnn", "SAREK", attribute=False)
-pipeline("GENERAL", features, general_features, "cnn", "MIXED_UNKOWN_TYPE", attribute=False)
+if __name__ == "__main__":
+    #Choose any scikit model, but attribution is only supported for RF and EBM 
+    #pipeline("GENERAL", features, general_features, "cnn", "MIXED_UNKOWN_TYPE", attribute=False)
+    pipeline("AUTO", features, general_features, "mlp", "AMPLISEQ", attribute=True)

@@ -20,7 +20,6 @@ class ProcessAttributorSHAPMLP:
         self.explainer = shap.KernelExplainer(
             self.model.predict, 
             data=idle_scaled, 
-            #feature_perturbation="interventional"
         )
         self.base_interval_energy = self.explainer.expected_value
         print(f"SHAP Base Power (Idle Baseline): {self.base_interval_energy:.2f} Ws")
@@ -29,15 +28,18 @@ class ProcessAttributorSHAPMLP:
     def attribute(self, df_original, good_features, test_times ,custom_name):
         self._init_explainer()
         shap_vals = self.explainer.shap_values(self.X_test)
-        #Look into learning constraints?
-        #This is questionable due to the idle baseline there should only be postivite attributions?
-        #There is no visible difference in the plots -> so the difference is small at most 
-        #In theory the shap values should be positive anyway since -> since they are calculated from the idle power upwards
-        #shap_vals = np.maximum(0,shap_vals)
+
+        #On some datasets, using this method with the GENERAL features creates a small additivity error < 3 Ws
+        #Since the error we observed was small we deemed it acceptable 
+        #When using the automatically selected features, this error also disappeard
+        #We therefore strongly recommend using automatic selection when creating attributions
+
         df_budgets = pd.DataFrame(shap_vals, columns=good_features, index=test_times)
-        #print(df_budgets.head(10))
         
-        #Do we need this? -> Yes because of the different time zone on the server
+        #In theory the shap values should be positive anyway since -> since SHAP values are calculated from the idle power upwards
+        #Since we use an idle prediction this is not 100% correct, because the prediction will likely not be 100% equal with the true hidden idle state
+        #This is a simplification, but it ensures there are no negative shap values
+        #No process is able to create negative power
         df_budgets.index = pd.to_datetime(df_budgets.index)
         if df_budgets.index.tz is None and df_original.index.tz is not None:
             print("actually aligned timezones" )
@@ -56,6 +58,7 @@ class ProcessAttributorSHAPMLP:
         #
         plotter = AttributionPlotter(df_result, time_col="_time", energy_col="attributed_dynamic_Ws")
         plotter.plot_top_processes(top_n=8, save_path=custom_name + "shap_process_attribution.png")
+        plotter.plot_top_processes_by_max(top_n=8, save_path=custom_name + "shap_process_attribution_by_max.png")
         plotter.plot_top_processes_new(top_n=8, save_path=custom_name +"shap_process_attribution_new.png")
         plotter.plot_top_pids(top_n=8, save_path=custom_name+"shap_pid_attribution.png")
         

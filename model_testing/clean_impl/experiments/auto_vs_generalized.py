@@ -23,47 +23,48 @@ from model_testing.clean_impl.plotting.plotting import plot_dataset
 
 #This is an experimental pipeline that compares model performance of general features vs automatic features vs sfs features
 #This will use A LOT of RAM because all data sets are loaded at the same time
-other_path = "../../ProcessEnergyAccounting/"
+
 
 train_ampliseq = [
-        pd.read_parquet(other_path+"runs/nfcore-20260703T215123Z/datasets/ampliseq_1_0607.parquet"),
-        pd.read_parquet(other_path+"runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet"),
-        pd.read_parquet(other_path+"runs/nfcore-20260708T125031Z/datasets/ampliseq_triple_run.parquet")
+        "runs/nfcore-20260703T215123Z/datasets/ampliseq_1_0607.parquet",
+        "runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet",
+        "runs/nfcore-20260708T125031Z/datasets/ampliseq_triple_run.parquet"
 
 ]
-test_ampliseq = pd.read_parquet(other_path+"runs/nfcore-20260706T112716Z/datasets/ampliseq_3_0707.parquet")
+test_ampliseq = "runs/nfcore-20260706T112716Z/datasets/ampliseq_3_0707.parquet"
 
 train_sarek = [
-    pd.read_parquet(other_path+"runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet"),
-    pd.read_parquet(other_path+"runs/nfcore-20260702T193504Z/datasets/sarek_2_0207.parquet")
+    "runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet",
+    "runs/nfcore-20260702T193504Z/datasets/sarek_2_0207.parquet"
 
 ]
-test_sarek = pd.read_parquet(other_path+"runs/nfcore-20260708T212252Z/datasets/sarek3_0907.parquet")
+test_sarek = "runs/nfcore-20260708T212252Z/datasets/sarek3_0907.parquet"
 
 #Be careful what you uncomment -> test data must not be in test data
 train_mixed_unseen_type2 = [
-    pd.read_parquet(other_path+"runs/nfcore-20260704T110043Z/datasets/chipseq_2_0607.parquet"),
-    pd.read_parquet(other_path+"runs/nfcore-20260701T114734Z/datasets/rnaseq_1_02027.parquet"),
-    #pd.read_parquet(other_path+"runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet"),
-    pd.read_parquet(other_path+"runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet")
+    "runs/nfcore-20260704T110043Z/datasets/chipseq_2_0607.parquet",
+    "runs/nfcore-20260701T114734Z/datasets/rnaseq_1_02027.parquet",
+    "runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet"
 
 ]
-#test_mixed_unseen_type = pd.read_parquet(other_path+"runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet")
-test_mixed_unseen_type2 = pd.read_parquet(other_path+"runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet")
+test_mixed_unseen_type2 = "runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet"
 
-# test_stressng = pd.read_parquet("stressng_test3_10_.parquet")
-# train_stressng = pd.read_parquet("stressng_train0_3_.parquet")
-
-#TODO add better stressng
-#TODO short train vs long train
-#TODO mixed on same type
-#TODO cross node comparison
+train_mixed_seen_type = [
+    "runs/nfcore-20260704T110043Z/datasets/chipseq_2_0607.parquet",
+    "runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet",
+    "runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet"
+]
+test_mixed_seen_type = "runs/nfcore-20260708T212252Z/datasets/sarek3_0907.parquet"
 
 
+
+#add data sets you want to test
+#It is preferably to not run everthing at the same time -> huge memory foot print
 data_map = {
-    "ampliseq": (train_ampliseq,test_ampliseq),
-    "sarek" : (train_sarek, test_sarek),
-    "train_mixed_unseen_type2": (train_mixed_unseen_type2,test_mixed_unseen_type2)
+    #"ampliseq": (train_ampliseq,test_ampliseq),
+    "sarek" : (train_sarek, test_sarek)#,
+    #"train_mixed_unseen_type2": (train_mixed_unseen_type2,test_mixed_unseen_type2),
+    #"train_mixed_seen_type": (train_mixed_seen_type, test_mixed_seen_type)
 }
 
 #Total amount of considered features
@@ -97,9 +98,14 @@ generalized_features =  ['delta_io_bytes', 'context_switches', 'delta_cpu_ns', '
 
 for name ,value in data_map.items():
 
-    training_data = value[0]
-    training_data = pd.concat(training_data, ignore_index=True)
-    test_data = value[1]
+    training_data_path = value[0]
+    test_data_path = value[1]
+
+    training_data_list = [pd.read_parquet(path) for path in training_data_path]
+    training_data = pd.concat(training_data_list, ignore_index=True)
+    test_data = pd.read_parquet(test_data_path)
+
+
     PNG_NAME = name
     print("/n")
     print("Evaluating : ", name)
@@ -123,10 +129,10 @@ for name ,value in data_map.items():
     #Add models that should be compared
     models = {
         "RF": RandomForestRegressor(n_estimators=100,  n_jobs=-1, random_state=42),
-        "SgD" :SGDRegressor(loss= "squared_error", penalty='l2', shuffle= False),
+        #"SgD" :SGDRegressor(loss= "squared_error", penalty='l2', shuffle= False),
         "Ridge" : Ridge(alpha=1.0),
         "Lasso" : Lasso(alpha=0.1),
-        "Lasso_Cvxpy": CvxpyMimicLasso(l1_penalty=0.1),
+        "Lasso_Cvxpy": CvxpyMimicLasso(l1_penalty=0.1), # Lasso from original paper?
         "bayes" : linear_model.BayesianRidge(),
         "EBM" : SafeEBMWrapper()
 
