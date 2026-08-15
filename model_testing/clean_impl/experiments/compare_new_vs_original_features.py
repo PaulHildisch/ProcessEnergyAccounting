@@ -7,7 +7,7 @@ from sklearn.linear_model import Lasso
 #Custom imports
 from model_testing.clean_impl.pipeline.model_builder import ModelBuilder
 from model_testing.clean_impl.pipeline.wrappers import SafeEBMWrapper
-from model_testing.clean_impl.pipeline.full_prediction_attribution_pipeline import select_data, automatic_selection_prep, preprocess_test
+from model_testing.clean_impl.pipeline.full_prediction_attribution_pipeline import  automatic_selection_prep, preprocess_test
 
 
 
@@ -74,13 +74,59 @@ new_features = [
        'syscall_class_time']
 
 
+def select_new_feat_data(dataset_name):
+    
+    #Recorded with an extended feature set | is used for the feature comparison expermiment
+    if dataset_name == "AMPLISEQ_S12_NEW_FEAT":
+        train_workflows = [
+            pd.read_parquet("ampliseq1_new_feat.parquet"),
+            pd.read_parquet("ampliseq2_new_feat.parquet"),
+            pd.read_parquet("ampliseq3_new_feat.parquet")
+        ]
+        test_workflows = pd.read_parquet("ampliseq4_new_feat.parquet")
+
+    #Recorded with an extended feature set | | is used for the feature comparison expermiment
+    elif dataset_name == "SAREK_S12_NEW_FEAT":
+        train_workflows = [
+                pd.read_parquet("sarek1_new_feat.parquet"),
+                pd.read_parquet("sarek2_new_feat.parquet")
+        ]
+        test_workflows = pd.read_parquet("sarek3_new_feat.parquet")
+
+    elif dataset_name == "MIXED_UNKNOWN_TYPE_S12_NEW_FEAT":
+        train_workflows =[
+            pd.read_parquet("rnaseq1_new_feat.parquet"),
+            pd.read_parquet("ampliseq1_new_feat.parquet")
+        ]
+        test_workflows = pd.read_parquet("sarek1_new_feat.parquet")
+
+    elif dataset_name == "MIXED_KNOWN_TYPE_S12_NEW_FEAT":
+        train_workflows =[
+            pd.read_parquet("rnaseq1_new_feat.parquet"),
+            pd.read_parquet("ampliseq1_new_feat.parquet"),
+            pd.read_parquet("sarek1_new_feat.parquet")
+        ]
+        test_workflows = pd.read_parquet("sarek2_new_feat.parquet")
+
+    else:
+        raise ValueError("UNKOWN DATASET SELECTED! Choose valide name.")
+
+    if len(train_workflows) > 1:
+        training_data = pd.concat(train_workflows, ignore_index=True)
+    else:
+        training_data = train_workflows[0]
+
+    test_data = test_workflows
+    return training_data, test_data
+
+
 
 def experiment(model, dataset_name, full_features):
-    training_data, test_data = select_data(dataset_name)
+    training_data, test_data = select_new_feat_data(dataset_name)
     selected_features,X_train, y_train =  automatic_selection_prep(training_data, full_features, model)
     X_test, y_test, t_test , X_test_unaggregated = preprocess_test(test_data ,selected_features)
     builder = ModelBuilder(X_train, X_test, y_train, y_test, model, StandardScaler())
-    #prints the evaluation
+    #prints the evaluation but will not generate plots
     y_pred, learned_idle_power = builder.run_and_save_model(".", model_name="new_vs_old_feat_model.joblib", save=False)
     return selected_features
 
@@ -101,15 +147,19 @@ def evaluate(model, data):
     print('-'*150)
 
 if __name__ == "__main__":
+    #Only choose Rf for the paper due to space constraints
     model = RandomForestRegressor(n_estimators=100,  n_jobs=-1, random_state=42)
     #model = SafeEBMWrapper()
     #model = Ridge(alpha=1.0)
     #model = Lasso(alpha=0.1)
-    # print("Analyze SAREK")
-    # evaluate(model, "SAREK_S12_NEW_FEAT")
+    print("Analyze SAREK new features")
+    evaluate(model, "SAREK_S12_NEW_FEAT")
 
-    # print("Analyze AMPLISEQ")
-    # evaluate(model, "AMPLISEQ_S12_NEW_FEAT")
+    print("Analyze AMPLISEQ new features")
+    evaluate(model, "AMPLISEQ_S12_NEW_FEAT")
 
-    print("Analyze MIXED")
-    evaluate(model, "MIXED_UNKOWN_TYPE_S12_NEW_FEAT")
+    print("Analyze MIXED UNKNOWN new features")
+    evaluate(model, "MIXED_UNKNOWN_TYPE_S12_NEW_FEAT")
+
+    print("Analyze MIXED KOWN new features")
+    evaluate(model, "MIXED_KNOWN_TYPE_S12_NEW_FEAT")

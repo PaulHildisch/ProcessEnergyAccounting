@@ -57,6 +57,21 @@ train_mixed_seen_type = [
 test_mixed_seen_type = "runs/nfcore-20260708T212252Z/datasets/sarek3_0907.parquet"
 
 
+train_sarek_cpu06 = [
+    "runs/cpu06_scondtry/sarek-1786625685.parquet",
+    "runs/cpu06_scondtry/sarek-1786655910.parquet"
+]
+test_sarek_cpu06 = "runs/cpu06_scondtry/sarek-1786686555.parquet"
+
+
+train_ampliseq_cpu06 = [
+    "runs/cpu06_scondtry/ampliseq-1786566355.parquet",
+    "runs/cpu06_scondtry/ampliseq-1786576997.parquet"
+]
+test_ampliseq_cpu06 = "runs/cpu06_scondtry/ampliseq-1786699827.parquet"
+
+
+
 
 #add data sets you want to test
 #It is preferably to not run everthing at the same time -> huge memory foot print
@@ -64,7 +79,9 @@ data_map = {
     #"ampliseq": (train_ampliseq,test_ampliseq),
     "sarek" : (train_sarek, test_sarek)#,
     #"train_mixed_unseen_type2": (train_mixed_unseen_type2,test_mixed_unseen_type2),
-    #"train_mixed_seen_type": (train_mixed_seen_type, test_mixed_seen_type)
+    #"train_mixed_seen_type": (train_mixed_seen_type, test_mixed_seen_type),
+    #"ampliseq_cpu06" : (train_ampliseq_cpu06, test_ampliseq_cpu06),
+    #"sarek_cpu06" : (train_sarek_cpu06, test_sarek_cpu06)
 }
 
 #Total amount of considered features

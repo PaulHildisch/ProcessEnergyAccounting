@@ -47,6 +47,15 @@ data = {
     "rnaseq1_new_feat_s12": pd.read_parquet("rnaseq1_new_feat.parquet")
 }
 
+data = {
+    # "a1" : pd.read_parquet("runs/cpu06_scondtry/ampliseq-1786566355.parquet"),
+    # "a2" :pd.read_parquet("runs/cpu06_scondtry/ampliseq-1786576997.parquet"),
+    "a3" : pd.read_parquet("runs/cpu06_scondtry/ampliseq-1786566355.parquet"),
+    "s1" : pd.read_parquet("runs/cpu06_scondtry/sarek-1786625685.parquet"),
+    "s2" : pd.read_parquet("runs/cpu06_scondtry/sarek-1786655910.parquet"),
+    "s3" : pd.read_parquet("runs/cpu06_scondtry/sarek-1786686555.parquet")
+}
+
 
 #Not important for the actual visualization but we make use of our Preprocessing class which expects features
 features = [
@@ -79,4 +88,4 @@ for name , df in data.items():
     preprocessor_train = Preprocessor(df,features)
     #Preprocess entire dataset
     _, y_train, t_train, _ = preprocessor_train.preprocess_no_split()
-    plot_dataset(t_train, y_train, "data_inspection/siena12_new_raw_with_outliers/" +name)
+    plot_dataset(t_train, y_train, "data_inspection/cpu06_second/" +name)
