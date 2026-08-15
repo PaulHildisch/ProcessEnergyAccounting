@@ -80,29 +80,12 @@ def select_data(dataset_name):
         #test_mixed_unseen_type = pd.read_parquet(other_path+"runs/nfcore-20260704T093159Z/datasets/ampliseq_2_0607.parquet")
         test_workflows = pd.read_parquet(other_path+"runs/nfcore-20260701T215234Z/datasets/sarek_1_0207.parquet")
 
-    #Recorded with an extended feature set | is used for the feature comparison expermiment
-    elif dataset_name == "AMPLISEQ_S12_NEW_FEAT":
+    #CPU06 data is more relevant to auto vs generalized and the cross node comparison, therefore not all data sets are integrated here
+    elif dataset_name == "AMPLISEQ_CPU06":
         train_workflows = [
-            pd.read_parquet(other_path+"ampliseq1_new_feat.parquet"),
-            pd.read_parquet(other_path+"ampliseq2_new_feat.parquet"),
-            pd.read_parquet(other_path+"ampliseq3_new_feat.parquet")
-        ]
-        test_workflows = pd.read_parquet(other_path+"ampliseq4_new_feat.parquet")
-
-    #Recorded with an extended feature set | | is used for the feature comparison expermiment
-    elif dataset_name == "SAREK_S12_NEW_FEAT":
-        train_workflows = [
-                pd.read_parquet(other_path+"sarek1_new_feat.parquet"),
-                pd.read_parquet(other_path+"sarek2_new_feat.parquet")
-        ]
-        test_workflows = pd.read_parquet(other_path+"sarek3_new_feat.parquet")
-
-    elif dataset_name == "MIXED_UNKOWN_TYPE_S12_NEW_FEAT":
-        train_workflows =[
-            pd.read_parquet(other_path+"rnaseq1_new_feat.parquet"),
-            pd.read_parquet(other_path+"ampliseq1_new_feat.parquet")
-        ]
-        test_workflows = pd.read_parquet(other_path+"sarek1_new_feat.parquet")
+            pd.read_parquet("runs/cpu06_scondtry/ampliseq-1786576997.parquet")
+                ]
+        test_workflows = pd.read_parquet("runs/cpu06_scondtry/ampliseq-1786566355.parquet")
 
     #only local debugging
     elif dataset_name == "DEBUG_LOCAL":

@@ -75,15 +75,12 @@ class SafeKerasWrapper(RegressorMixin, BaseEstimator):
                            scoring='neg_mean_squared_error',
                            random_state=42,
                            n_jobs = -1)
-        all_importances = np.array(all_importances.importances_mean)
         # Now convert to numpy array and slice it for SelectFromModel
         #print(np.array(all_importances))
 
-        self.feature_importances_ = all_importances
-        print(self.feature_importances_ )
-        
         #training_fs_time = training_fs_end_time - training_fs_start_time
         #print(f"Training feature selection time: {training_fs_time:.2f} seconds")
+        self.feature_importances_ = np.array(all_importances.importances_mean)
         return self
 
     def predict(self, X):
