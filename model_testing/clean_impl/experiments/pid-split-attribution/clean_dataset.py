@@ -2,24 +2,28 @@ import pandas as pd
 import argparse
 
 # Use actual module provided by Johannes 
-from preprocessor import Preprocessor
+from model_testing.clean_impl.pipeline.preprocessing import Preprocessor
 
 def main(args: tuple) -> None:
     filename = args.filepath.split('.')[0]
     features = args.features
+    print(type(features))
 
     df = pd.read_parquet(args.filepath)
     preprocessor = Preprocessor(df, features)
 
-    df_agg, interval_energy_all, t, df_unagg = preprocessor.preprocess_no_split()
-    interval_energy_all = pd.DataFrame(interval_energy_all, index=t)
 
     if args.pid_split:
+        df_agg, interval_energy_all, t, df_unagg = preprocessor.preprocess_no_split_custom_labels()
+        interval_energy_all = pd.DataFrame(interval_energy_all, index=t)
         df_unagg = df_unagg.reset_index().set_index(["_time","pid"])[features + ['pid_label', 'base_name']]
         df_unagg = df_unagg[(df_unagg[features] > 0).any(axis=1)]
+        print(df_unagg[:5])
         df_unagg.to_parquet(f"{filename}-preprocessed-pid.parquet")
         print(f"Saved unscaled, per pid data to \"{filename}-preprocessed-pid.parquet\"")
     else:
+        df_agg, interval_energy_all, t, df_unagg = preprocessor.preprocess_no_split()
+        interval_energy_all = pd.DataFrame(interval_energy_all, index=t)
         df_agg.to_parquet(f"{filename}-preprocessed-aggregated.parquet")
         print(f"Saved unscaled, aggregated data to \"{filename}-preprocessed-aggregated.parquet\"")
 

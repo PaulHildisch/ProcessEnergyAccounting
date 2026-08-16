@@ -7,6 +7,7 @@ import argparse
 import joblib
 import warnings
 import progressbar
+import pathlib
 from sklearn.preprocessing import StandardScaler
 from matplotlib import pyplot as plt
 from matplotlib import dates as dates
@@ -41,7 +42,7 @@ def plot(prediction: pd.DataFrame, actual: pd.DataFrame, range: int = None, titl
 
     agg = prediction.groupby(['_time', grouplabel])['interval_energy'].sum().reset_index()
 
-    pivot = agg.pivot(index='_time', columns="base_name", values='interval_energy').fillna(0)
+    pivot = agg.pivot(index='_time', columns=grouplabel, values='interval_energy').fillna(0)
 
     top_pids = pivot.sum().sort_values(ascending=False).head(top_n).index
     pivot_top = pivot[top_pids].copy()
@@ -64,13 +65,14 @@ def plot(prediction: pd.DataFrame, actual: pd.DataFrame, range: int = None, titl
     ax.legend(loc="upper left", bbox_to_anchor=(1.0, 1.0), fontsize=9, frameon=True)
 
     plt.tight_layout()
-    plt.savefig(f"plots/{title.lower().replace(' ', '_')}-{time.strftime("%m%d%H%M%S")}.png", bbox_inches="tight", dpi=300)
+    plt.savefig(f"{pathlib.Path(__file__).parent.resolve()}/plots/{title.lower().replace(' ', '_')}-{time.strftime("%m%d%H%M%S")}.png", bbox_inches="tight", dpi=300)
 
 def predictions(data: pd.DataFrame, model, zero_prediction: pd.DataFrame) -> pd.DataFrame:
     preds = pd.DataFrame(data['pid'], columns=['pid', 'interval_energy']).astype({"pid":"int64","interval_energy":"float64"})
     bar = progressbar.ProgressBar(max_value=len(data.index.to_series().unique()), widgets=['Making predictions:', ' ', progressbar.Percentage(), ' ', progressbar.Bar('#'), ' ', progressbar.Timer()], redirect_stdout=True)
     for timestamp in data.index.to_series().unique():
-        predictions = model.predict(data.loc[timestamp, data.columns != 'pid']) - zero_prediction
+        values = data.loc[timestamp, data.columns != 'pid']
+        predictions = model.predict(values) - zero_prediction
         preds.loc[timestamp, 'interval_energy'] = predictions
         bar.update(bar.value+1)
     bar.finish('\n')
@@ -88,7 +90,8 @@ def read_data(measurementsPath: str, targetsPath: str, scaler) -> tuple[pd.DataF
 
         for timestamp, interval_df in x.groupby(level=0):
             interval_df = interval_df.droplevel(0)
-            x.loc[timestamp].iloc[:,:] = scaler.transform(interval_df)
+            transformedDF= scaler.transform(interval_df)
+            x.loc[timestamp] = transformedDF
             bar.update(bar.value+1)
         bar.finish('\n')
     else: 
@@ -119,9 +122,9 @@ def main(args: tuple):
     
     modelname = "Random Forest"
     if args.full:
-        plot(prediction, actual, title=f"Individual PID Attributions - {modelname}")
+        plot(prediction, actual, title=f"Individual PID Attributions - {modelname}", grouped=args.grouped)
     else:
-        plot(prediction, actual, range=600, title=f"Individual PID Attributions - {modelname}")
+        plot(prediction, actual, range=600, title=f"Individual PID Attributions - {modelname}", grouped=args.grouped)
 
 
 if __name__ == "__main__":
@@ -131,6 +134,7 @@ if __name__ == "__main__":
     parser.add_argument("--targetDataSource", type=str)
     parser.add_argument("--pidDataSource", type=str)
     parser.add_argument("--full", action="store_true", default=False)
+    parser.add_argument("--grouped", action="store_true", default=False)
 
     args = parser.parse_args()
     warnings.filterwarnings("ignore")

@@ -18,6 +18,11 @@ class Preprocessor:
         #just to be sure
         self.df = self.df.sort_values("_time")
 
+    def _add_custom_labels(self):
+        self.good_features = self.good_features + ["pid_label", "base_name"]
+        self.df["pid_label"] = self.df["process_name"] + " (" + self.df["pid"].astype(str) + ")"
+        self.df["base_name"] = self.df["process_name"].str.replace(r"_\d+$", "", regex=True).str.strip()
+        self.df.loc[self.df["base_name"] == "", "base_name"] = "unknown"
 
     def _save_unaggregated_data(self):
         #needed for the process attribution
@@ -103,5 +108,18 @@ class Preprocessor:
         return X, y, t, unaggregated
 
     
+    def preprocess_no_split_custom_labels(self):
+        self._convert_datetime()
+        self._add_custom_labels()
+        self._fill_nan_values()
+        self._extract_interval_energy()
+        self._aggregate()
+        self._save_unaggregated_data()
+        self._remove_outliers(window=5, max_deviation_energy=  150)# adjust this to the node and to the aggregation settings!!
 
+        X = self.df_agg
+        y = self.interval_energy_all
+        t = self.interval_energy_all.index
+        unaggregated = self.df_unaggregated
+        return X, y, t, unaggregated
 
