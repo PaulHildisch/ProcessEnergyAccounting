@@ -96,6 +96,8 @@ prometheus_client==0.26.0
 prompt_toolkit==3.0.52
 propcache==0.5.2
 protobuf==7.35.1
+progressbar2==4.6.0
+python-utils==4.0.0
 psutil==7.2.2
 ptyprocess==0.7.0
 pure_eval==0.2.3
