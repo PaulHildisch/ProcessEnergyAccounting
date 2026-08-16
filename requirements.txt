@@ -44,3 +44,6 @@ threadpoolctl==3.6.0
 typing_extensions==4.14.0
 tzdata==2025.2
 urllib3==2.4.0
+narwhals==2.24.0
+progressbar2==4.6.0
+python-utils==4.0.0
