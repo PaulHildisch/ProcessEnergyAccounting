@@ -77,11 +77,11 @@ test_ampliseq_cpu06 = "runs/cpu06_scondtry/ampliseq-1786699827.parquet"
 #It is preferably to not run everthing at the same time -> huge memory foot print
 data_map = {
     #"ampliseq": (train_ampliseq,test_ampliseq),
-    "sarek" : (train_sarek, test_sarek)#,
+    #"sarek" : (train_sarek, test_sarek),
     #"train_mixed_unseen_type2": (train_mixed_unseen_type2,test_mixed_unseen_type2),
     #"train_mixed_seen_type": (train_mixed_seen_type, test_mixed_seen_type),
     #"ampliseq_cpu06" : (train_ampliseq_cpu06, test_ampliseq_cpu06),
-    #"sarek_cpu06" : (train_sarek_cpu06, test_sarek_cpu06)
+    "sarek_cpu06" : (train_sarek_cpu06, test_sarek_cpu06)
 }
 
 #Total amount of considered features

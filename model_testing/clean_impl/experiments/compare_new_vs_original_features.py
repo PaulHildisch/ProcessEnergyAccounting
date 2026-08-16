@@ -79,34 +79,34 @@ def select_new_feat_data(dataset_name):
     #Recorded with an extended feature set | is used for the feature comparison expermiment
     if dataset_name == "AMPLISEQ_S12_NEW_FEAT":
         train_workflows = [
-            pd.read_parquet("ampliseq1_new_feat.parquet"),
-            pd.read_parquet("ampliseq2_new_feat.parquet"),
-            pd.read_parquet("ampliseq3_new_feat.parquet")
+            pd.read_parquet("runs/new_feature_siena12/ampliseq1_new_feat.parquet"),
+            pd.read_parquet("runs/new_feature_siena12/ampliseq2_new_feat.parquet"),
+            pd.read_parquet("runs/new_feature_siena12/ampliseq3_new_feat.parquet")
         ]
-        test_workflows = pd.read_parquet("ampliseq4_new_feat.parquet")
+        test_workflows = pd.read_parquet("runs/new_feature_siena12/ampliseq4_new_feat.parquet")
 
     #Recorded with an extended feature set | | is used for the feature comparison expermiment
     elif dataset_name == "SAREK_S12_NEW_FEAT":
         train_workflows = [
-                pd.read_parquet("sarek1_new_feat.parquet"),
-                pd.read_parquet("sarek2_new_feat.parquet")
+                pd.read_parquet("runs/new_feature_siena12/sarek1_new_feat.parquet"),
+                pd.read_parquet("runs/new_feature_siena12/sarek2_new_feat.parquet")
         ]
-        test_workflows = pd.read_parquet("sarek3_new_feat.parquet")
+        test_workflows = pd.read_parquet("runs/new_feature_siena12/sarek3_new_feat.parquet")
 
     elif dataset_name == "MIXED_UNKNOWN_TYPE_S12_NEW_FEAT":
         train_workflows =[
-            pd.read_parquet("rnaseq1_new_feat.parquet"),
-            pd.read_parquet("ampliseq1_new_feat.parquet")
+            pd.read_parquet("runs/new_feature_siena12/rnaseq1_new_feat.parquet"),
+            pd.read_parquet("runs/new_feature_siena12/ampliseq1_new_feat.parquet")
         ]
-        test_workflows = pd.read_parquet("sarek1_new_feat.parquet")
+        test_workflows = pd.read_parquet("runs/new_feature_siena12/sarek1_new_feat.parquet")
 
     elif dataset_name == "MIXED_KNOWN_TYPE_S12_NEW_FEAT":
         train_workflows =[
-            pd.read_parquet("rnaseq1_new_feat.parquet"),
-            pd.read_parquet("ampliseq1_new_feat.parquet"),
-            pd.read_parquet("sarek1_new_feat.parquet")
+            pd.read_parquet("runs/new_feature_siena12/rnaseq1_new_feat.parquet"),
+            pd.read_parquet("runs/new_feature_siena12/ampliseq1_new_feat.parquet"),
+            pd.read_parquet("runs/new_feature_siena12/sarek1_new_feat.parquet")
         ]
-        test_workflows = pd.read_parquet("sarek2_new_feat.parquet")
+        test_workflows = pd.read_parquet("runs/new_feature_siena12/sarek2_new_feat.parquet")
 
     else:
         raise ValueError("UNKOWN DATASET SELECTED! Choose valide name.")
