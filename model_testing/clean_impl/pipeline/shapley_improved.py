@@ -16,7 +16,7 @@ class ProcessAttributorSHAP:
         idle_interval = np.zeros((1, self.X_test.shape[1]))
         idle_scaled = self.scaler.transform(idle_interval)
 
-        #set the shapley basline to idle instead of expected value
+        #set the shapley baseline to idle instead of expected value
         self.explainer = shap.TreeExplainer(
             self.model, 
             data=idle_scaled, 
@@ -31,7 +31,7 @@ class ProcessAttributorSHAP:
 
         #On some datasets, using this method with the GENERAL features creates a small additivity error < 3 Ws
         #Since the error we observed was small we deemed it acceptable 
-        #When using the automatically selected features, this error also disappeard
+        #When using the automatically selected features, this error also disappeared
         #We therefore strongly recommend using automatic selection when creating attributions
         shap_vals = self.explainer.shap_values(self.X_test, check_additivity=False)
 
