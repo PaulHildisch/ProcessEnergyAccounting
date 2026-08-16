@@ -31,7 +31,8 @@ warnings.filterwarnings("ignore",category=ConvergenceWarning)
 
 #This is an experimental pipeline that compares model performance of general features vs automatic features vs sfs features
 #This will use A LOT of RAM because all data sets are loaded at the same time
-other_path = "../../ProcessEnergyAccounting/"
+#other_path = "../../ProcessEnergyAccounting/"
+other_path=""
 log_file_path = "eval_results.txt"
 
 train_ampliseq = [

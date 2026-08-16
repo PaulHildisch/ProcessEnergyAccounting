@@ -49,8 +49,8 @@ features = [
 ]
 
 general_features =  ['delta_io_bytes', 'context_switches', 'delta_cpu_ns', 'delta_net_send_bytes', 'syscall_count']
-other_path = "../../ProcessEnergyAccounting/"
-#other_path = ""
+#other_path = "../../ProcessEnergyAccounting/"
+other_path = ""
 def select_data(dataset_name):
     if dataset_name == "AMPLISEQ":
         train_workflows = [
@@ -229,6 +229,6 @@ mlp_model = MLPRegressor(hidden_layer_sizes=(128,32,16),
                     random_state=42)
 
 if __name__ == "__main__":
-    #Choose any scikit model, but attribution is only supported for RF and EBM 
+
     #pipeline("GENERAL", features, general_features, "cnn", "MIXED_UNKOWN_TYPE", attribute=False)
     pipeline("AUTO", features, general_features, "mlp", "AMPLISEQ", attribute=True)

@@ -29,17 +29,8 @@ class ProcessAttributorSHAPMLP:
         self._init_explainer()
         shap_vals = self.explainer.shap_values(self.X_test)
 
-        #On some datasets, using this method with the GENERAL features creates a small additivity error < 3 Ws
-        #Since the error we observed was small we deemed it acceptable 
-        #When using the automatically selected features, this error also disappeard
-        #We therefore strongly recommend using automatic selection when creating attributions
-
         df_budgets = pd.DataFrame(shap_vals, columns=good_features, index=test_times)
         
-        #In theory the shap values should be positive anyway since -> since SHAP values are calculated from the idle power upwards
-        #Since we use an idle prediction this is not 100% correct, because the prediction will likely not be 100% equal with the true hidden idle state
-        #This is a simplification, but it ensures there are no negative shap values
-        #No process is able to create negative power
         df_budgets.index = pd.to_datetime(df_budgets.index)
         if df_budgets.index.tz is None and df_original.index.tz is not None:
             print("actually aligned timezones" )
@@ -50,7 +41,6 @@ class ProcessAttributorSHAPMLP:
         
         # Divide original metrics by the total to get the ratio (fillna(0) prevents division by zero)
         ratios = df_original[good_features].div(totals, axis=0).fillna(0)
-        # Multiply ratios by the SHAP budgets, then sum across the features (axis=1) to get final 
         df_result = df_original.copy()
         df_result["attributed_dynamic_Ws"] = ratios.mul(df_budgets, axis=0).sum(axis=1)
         #print(df_result.head(5))
@@ -58,7 +48,7 @@ class ProcessAttributorSHAPMLP:
         #
         plotter = AttributionPlotter(df_result, time_col="_time", energy_col="attributed_dynamic_Ws")
         plotter.plot_top_processes(top_n=8, save_path=custom_name + "shap_process_attribution.png")
-        plotter.plot_top_processes_by_max(top_n=8, save_path=custom_name + "shap_process_attribution_by_max.png")
+        #plotter.plot_top_processes_by_max(top_n=8, save_path=custom_name + "shap_process_attribution_by_max.png")
         plotter.plot_top_processes_new(top_n=8, save_path=custom_name +"shap_process_attribution_new.png")
         plotter.plot_top_pids(top_n=8, save_path=custom_name+"shap_pid_attribution.png")
         

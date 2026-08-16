@@ -59,7 +59,7 @@ class ProcessAttributorSHAP:
 
         plotter = AttributionPlotter(df_result, time_col="_time", energy_col="attributed_dynamic_Wh")
         plotter.plot_top_processes(top_n=8, save_path=custom_name + "shap_process_attribution.png")
-        plotter.plot_top_processes_by_max(top_n=8, save_path=custom_name + "shap_process_attribution_by_max.png")
+        #plotter.plot_top_processes_by_max(top_n=8, save_path=custom_name + "shap_process_attribution_by_max.png")
         plotter.plot_top_processes_new(top_n=8, save_path=custom_name +"shap_process_attribution_new.png")
         plotter.plot_top_pids(top_n=8, save_path=custom_name+"shap_pid_attribution.png")
         
@@ -83,10 +83,6 @@ class ProcessAttributorEBM:
         #get the scores and subtract idle to show dynamic power
         #EBM is better suited for this task by design -> no additivity issues
         local_explain = self.model.explain_local(self.X_test)
-        # adjusted_scores = [
-        #     np.array(local_explain.data(i)['scores'][:len(good_features)]) - idle_scores
-        #     for i in range(len(self.X_test))
-        # ]
 
         adjusted_scores = []
         for i in range(len(self.X_test)):
@@ -112,7 +108,7 @@ class ProcessAttributorEBM:
 
         plotter = AttributionPlotter(df_result.reset_index(), time_col="_time", energy_col="attributed_dynamic_Ws")
         plotter.plot_top_processes(top_n=8, save_path=f"{custom_name}_ebm_process.png")
-        plotter.plot_top_processes_by_max(top_n=8, save_path=f"{custom_name}_ebm_process_by_max.png")
+        #plotter.plot_top_processes_by_max(top_n=8, save_path=f"{custom_name}_ebm_process_by_max.png")
         plotter.plot_top_processes_new(top_n=8, save_path=f"{custom_name}_ebm_process_new.png")
         plotter.plot_top_pids(top_n=8, save_path=f"{custom_name}_ebm_pid.png")
 

@@ -30,7 +30,7 @@ class SafeEBMWrapper(BaseEstimator, RegressorMixin):
     def predict(self, X):
         return self.model.predict(X)
 
-
+# Wrapper to mimic the orignal paper Lasso implementation
 class CvxpyMimicLasso(BaseEstimator, RegressorMixin):
     def __init__(self, l1_penalty=0.1):
         self.l1_penalty = l1_penalty
