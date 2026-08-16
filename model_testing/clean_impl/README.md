@@ -52,6 +52,7 @@ To call the deep learning implementation use:
 python3 -m model_testing.clean_impl.pipeline.full_prediction_attribution_pipeline_dl
 ```
 
+### Alternative Summed Prediciton Approach
 Running the summed prediction approach requires a little different setup as the model and data files have to handled manually.
 First train a model on a workflowtype. By default the model gets saved to `full_pipeline_model.joblib`.
 ```shell
