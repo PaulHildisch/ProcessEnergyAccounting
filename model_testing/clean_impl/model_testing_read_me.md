@@ -16,6 +16,9 @@ This folder contains our experiments and pipeline code for data preprocessing, m
 
 ## Replicate experiments
 
+### Data
+All collected data is present in the `/runs` directory on the Siena12 node. To avoid confusion, the data that was actually used for our project evaluations is grouped into datasets in the according experiment and pipeline files.
+
 ### Auto vs Generalized vs SFS features
 
 For easier replication we hard coded all paths that were used for the experiments in the report. To run this experiment with one of the datasets uncomment the dataset in the data_map (Running this experiment for all dataset in a row might take up to much memory so we recommend chosing one or two at a time). This pipeline will then compare the performance performance of various models trained on a general feature set with automatic selection and sequential forward selection for the given dataset. Beware this experiment has to be executed like a python module using the -m flag and . as seperators and no .py after the last file. It must be called from the ProcessEnergyAccounting directroy!
