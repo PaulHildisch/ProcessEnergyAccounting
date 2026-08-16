@@ -148,11 +148,10 @@ for name ,value in data_map.items():
         #"SgD" :SGDRegressor(loss= "squared_error", penalty='l2', shuffle= False),
         "Ridge" : Ridge(alpha=1.0),
         "Lasso" : Lasso(alpha=0.1),
-        "Lasso_Cvxpy": CvxpyMimicLasso(l1_penalty=0.1), # Lasso from original paper?
+        "Lasso_Cvxpy": CvxpyMimicLasso(l1_penalty=0.1), # Lasso from original paper
         "bayes" : linear_model.BayesianRidge(),
         "EBM" : SafeEBMWrapper()
 
-        #"kernelRidge" : KernelRidge(alpha=1.0) this doesnt work like that with the selection
     }
 
     #idle_power_is actually idle interval energy
