@@ -87,11 +87,11 @@ test_ampliseq_cpu06 = "runs/cpu06_scondtry/ampliseq-1786699827.parquet"
 #It is preferably to not run everthing at the same time -> huge memory foot print
 data_map = {
     #"ampliseq": (train_ampliseq,test_ampliseq),
-    #"sarek" : (train_sarek, test_sarek)#,
+    "sarek" : (train_sarek, test_sarek)#,
     #"train_mixed_unseen_type2": (train_mixed_unseen_type2,test_mixed_unseen_type2),
     #"train_mixed_seen_type": (train_mixed_seen_type, test_mixed_seen_type)
     #"ampliseq_cpu06" : (train_ampliseq_cpu06, test_ampliseq_cpu06),
-    "sarek_cpu06" : (train_sarek_cpu06, test_sarek_cpu06)
+    #"sarek_cpu06" : (train_sarek_cpu06, test_sarek_cpu06)
 }
 
 #Total amount of considered features
@@ -120,8 +120,7 @@ features = [
 
 
 generalized_features =  ['delta_io_bytes', 'context_switches', 'delta_cpu_ns', 'delta_net_send_bytes', 'syscall_count']
-#Workflow only gen -> pretty good
-#generalized_features =['delta_io_bytes', 'syscall_class_network', 'syscall_class_memory', 'context_switches', 'delta_cpu_ns', 'delta_net_send_bytes', 'syscall_count']
+
 
 #Choose other Keras model if required.
 def dynamic_model(model_name, num_features, window_size=20):
