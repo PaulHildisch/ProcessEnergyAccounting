@@ -34,18 +34,18 @@ import pandas as pd
     #"ampliseq_new_feat" : pd.read_parquet("ampliseq1_new_feat.parquet")
 #}
 
-data = {
-    # "ampliseq1_new_feat_s12" : pd.read_parquet("ampliseq1_new_feat.parquet"),
-    # "ampliseq2_new_feat_s12" : pd.read_parquet("ampliseq2_new_feat.parquet"),
-    # "ampliseq3_new_feat_s12" : pd.read_parquet("ampliseq3_new_feat.parquet"),
-    # "ampliseq4_new_feat_s12" : pd.read_parquet("ampliseq4_new_feat.parquet"),
-    # "ampliseq5_new_feat_s12" : pd.read_parquet("ampliseq5_new_feat.parquet"),
-    # "ampliseq6_new_feat_s12" : pd.read_parquet("ampliseq6_new_feat.parquet"),
-    # "sarek1_new_feat_s12": pd.read_parquet("sarek1_new_feat.parquet"),
-    # "sarek2_new_feat_s12": pd.read_parquet("sarek2_new_feat.parquet"),
-    # "sarek3_new_feat_s12": pd.read_parquet("sarek3_new_feat.parquet"),
-    "rnaseq1_new_feat_s12": pd.read_parquet("rnaseq1_new_feat.parquet")
-}
+# data = {
+#     # "ampliseq1_new_feat_s12" : pd.read_parquet("runs/new_feature_siena12/ampliseq1_new_feat.parquet"),
+#     # "ampliseq2_new_feat_s12" : pd.read_parquet("runs/new_feature_siena12/ampliseq2_new_feat.parquet"),
+#     # "ampliseq3_new_feat_s12" : pd.read_parquet("runs/new_feature_siena12/ampliseq3_new_feat.parquet"),
+#     # "ampliseq4_new_feat_s12" : pd.read_parquet("runs/new_feature_siena12/ampliseq4_new_feat.parquet"),
+#     # "ampliseq5_new_feat_s12" : pd.read_parquet("runs/new_feature_siena12/ampliseq5_new_feat.parquet"),
+#     # "ampliseq6_new_feat_s12" : pd.read_parquet("runs/new_feature_siena12/ampliseq6_new_feat.parquet"),
+#     # "sarek1_new_feat_s12": pd.read_parquet("runs/new_feature_siena12/sarek1_new_feat.parquet"),
+#     # "sarek2_new_feat_s12": pd.read_parquet("runs/new_feature_siena12/sarek2_new_feat.parquet"),
+#     # "sarek3_new_feat_s12": pd.read_parquet("runs/new_feature_siena12/sarek3_new_feat.parquet"),
+#     "rnaseq1_new_feat_s12": pd.read_parquet("runs/new_feature_siena12/rnaseq1_new_feat.parquet")
+# }
 
 data = {
     # "a1" : pd.read_parquet("runs/cpu06_scondtry/ampliseq-1786566355.parquet"),

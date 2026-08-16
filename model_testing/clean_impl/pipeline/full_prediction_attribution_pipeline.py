@@ -149,6 +149,7 @@ def pipeline(mode, full_features, general_features, model ,dataset_name, attribu
     X_test, y_test, t_test , X_test_unaggregated = preprocess_test(test_data ,selected_features)
     builder = ModelBuilder(X_train, X_test, y_train, y_test, model, StandardScaler())
     #Attributors recalculate idle power anyway
+    #Check if you want to save the model?
     y_pred, learned_idle_power = builder.run_and_save_model(".", model_name="full_pipeline_model.joblib", save=True)
 
     #Plot prediction results
